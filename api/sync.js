@@ -1,11 +1,10 @@
 // api/sync.js — Notion Sync (To Film + To Edit only)
  
-// Brad has multiple data sources — need newer API version
+// Brad has multi-source DB — use search API as workaround
+const BRAD_DB_ID = "28b508e9-9dda-8173-8029-ce0e348a06be";
+ 
 const DATABASES = {
-  Brad:    { ids: [
-    { id: "28b508e99dda81738029ce0e348a06be", version: "2025-09-03" },
-    { id: "28b508e99dda81ba8d7f000b84b83fbd", version: "2022-06-28" },
-  ]},
+  Brad:    { useSearch: true, dbId: BRAD_DB_ID },
   Lindsay: { ids: [{ id: "301508e99dda81afaca1c218fb551b46", version: "2022-06-28" }] },
   Chris:   { ids: [{ id: "2a1508e99dda81698188c34e5ac3f4f5", version: "2022-06-28" }] },
   EmTech:  { ids: [{ id: "328508e99dda802bb543d2871feaad8c", version: "2022-06-28" }] },
@@ -59,6 +58,37 @@ async function queryWithFallback(entries, token) {
   throw lastErr;
 }
  
+// Search API fallback for multi-source databases (Brad)
+async function searchPages(dbId, token) {
+  const allPages = [];
+  let cursor = undefined;
+  // Search in batches — collect all pages belonging to this database
+  while (true) {
+    const body = { filter: { property: "object", value: "page" }, page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+    const resp = await fetch("https://api.notion.com/v1/search", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Search API (${resp.status}): ${errText}`);
+    }
+    const data = await resp.json();
+    // Filter pages whose parent is this database
+    const dbPages = data.results.filter(p =>
+      p.parent && p.parent.type === "database_id" && p.parent.database_id && p.parent.database_id.replace(/-/g, "") === dbId.replace(/-/g, "")
+    );
+    allPages.push(...dbPages);
+    if (!data.has_more) break;
+    cursor = data.next_cursor;
+    // Safety limit
+    if (allPages.length > 500) break;
+  }
+  return allPages;
+}
+ 
 function extract(page, propName) {
   if (!propName) return null;
   const p = page.properties[propName];
@@ -86,7 +116,11 @@ export default async function handler(req, res) {
       const props = PROPS[client];
       let pages;
       try {
-        pages = await queryWithFallback(config.ids, token);
+        if (config.useSearch) {
+          pages = await searchPages(config.dbId, token);
+        } else {
+          pages = await queryWithFallback(config.ids, token);
+        }
       } catch (e) {
         result[client] = { videos: [], statusCounts: {}, toEditCount: 0, toFilmCount: 0, pipelineCount: 0, editors: [], totalVideos: 0, editorProp: props.editor, error: e.message };
         continue;
@@ -118,3 +152,4 @@ export default async function handler(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
+ 
