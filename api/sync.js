@@ -1,13 +1,16 @@
 // api/sync.js — Notion Sync (To Film + To Edit only)
  
-// Brad has multiple data sources — use REELS data source ID directly
+// Brad has multiple data sources — need newer API version
 const DATABASES = {
-  Brad:    { ids: ["28b508e99dda81ba8d7f000b84b83fbd", "28b508e99dda81738029ce0e348a06be"] },
-  Lindsay: { ids: ["301508e99dda81afaca1c218fb551b46"] },
-  Chris:   { ids: ["2a1508e99dda81698188c34e5ac3f4f5"] },
-  EmTech:  { ids: ["328508e99dda802bb543d2871feaad8c"] },
-  Duncan:  { ids: ["328508e99dda800a939af88618098413"] },
-  Cinday:  { ids: ["340508e99dda80469c3ee9df0342e02a"] },
+  Brad:    { ids: [
+    { id: "28b508e99dda81738029ce0e348a06be", version: "2025-09-03" },
+    { id: "28b508e99dda81ba8d7f000b84b83fbd", version: "2022-06-28" },
+  ]},
+  Lindsay: { ids: [{ id: "301508e99dda81afaca1c218fb551b46", version: "2022-06-28" }] },
+  Chris:   { ids: [{ id: "2a1508e99dda81698188c34e5ac3f4f5", version: "2022-06-28" }] },
+  EmTech:  { ids: [{ id: "328508e99dda802bb543d2871feaad8c", version: "2022-06-28" }] },
+  Duncan:  { ids: [{ id: "328508e99dda800a939af88618098413", version: "2022-06-28" }] },
+  Cinday:  { ids: [{ id: "340508e99dda80469c3ee9df0342e02a", version: "2022-06-28" }] },
 };
  
 const PROPS = {
@@ -19,7 +22,7 @@ const PROPS = {
   Cinday:  { status: "Status", editor: null,       title: "IDEA" },
 };
  
-async function tryQuery(dbId, token) {
+async function tryQuery(dbId, token, apiVersion) {
   const pages = [];
   let cursor = undefined;
   while (true) {
@@ -27,7 +30,7 @@ async function tryQuery(dbId, token) {
     if (cursor) body.start_cursor = cursor;
     const resp = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": apiVersion, "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!resp.ok) {
@@ -42,12 +45,12 @@ async function tryQuery(dbId, token) {
   return pages;
 }
  
-// Try each ID until one works
-async function queryWithFallback(ids, token) {
+// Try each ID+version combo until one works
+async function queryWithFallback(entries, token) {
   let lastErr = null;
-  for (const id of ids) {
+  for (const entry of entries) {
     try {
-      return await tryQuery(id, token);
+      return await tryQuery(entry.id, token, entry.version);
     } catch (e) {
       lastErr = e;
       continue;
