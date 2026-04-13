@@ -1,4 +1,4 @@
-// api/sync.js — Vercel Serverless Function for Notion Sync
+// api/sync.js — Notion Sync via REST API (no SDK needed)
 
 const DATABASES = {
   Brad: "28b508e99dda81738029ce0e348a06be",
@@ -17,6 +17,38 @@ const PIPELINE_STATUSES = [
   "edit - in progress", "brand approval pen", "waiting for approval"
 ];
 
+async function queryNotionDB(dbId, token) {
+  const pages = [];
+  let cursor = undefined;
+
+  while (true) {
+    const body = { page_size: 100 };
+    if (cursor) body.start_cursor = cursor;
+
+    const resp = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${token}`,
+        "Notion-Version": "2022-06-28",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`Notion API error (${resp.status}): ${err}`);
+    }
+
+    const data = await resp.json();
+    pages.push(...data.results);
+    if (!data.has_more) break;
+    cursor = data.next_cursor;
+  }
+
+  return pages;
+}
+
 function extractProperty(page, propName) {
   const prop = page.properties[propName];
   if (!prop) return null;
@@ -34,29 +66,17 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  try {
-    // Import and initialize inside handler to ensure env vars are available
-    const { Client } = await import("@notionhq/client");
-    const notion = new Client({ auth: process.env.NOTION_TOKEN });
+  const token = process.env.NOTION_TOKEN;
+  if (!token) {
+    return res.status(500).json({ success: false, error: "NOTION_TOKEN not configured" });
+  }
 
+  try {
     const result = {};
 
     for (const [client, dbId] of Object.entries(DATABASES)) {
       const props = PROPS[client];
-      const pages = [];
-      let cursor = undefined;
-
-      // Paginate all pages
-      while (true) {
-        const response = await notion.databases.query({
-          database_id: dbId,
-          start_cursor: cursor,
-          page_size: 100,
-        });
-        pages.push(...response.results);
-        if (!response.has_more) break;
-        cursor = response.next_cursor;
-      }
+      const pages = await queryNotionDB(dbId, token);
 
       const videos = [];
       const statusCounts = {};
