@@ -1,12 +1,13 @@
-// api/sync.js — Notion Sync (only To Film + To Edit)
+// api/sync.js — Notion Sync (To Film + To Edit only)
  
+// Brad has multiple data sources — use REELS data source ID directly
 const DATABASES = {
-  Brad:    { id: "28b508e99dda81738029ce0e348a06be", apiVersion: "2025-09-03" },
-  Lindsay: { id: "301508e99dda81afaca1c218fb551b46", apiVersion: "2022-06-28" },
-  Chris:   { id: "2a1508e99dda81698188c34e5ac3f4f5", apiVersion: "2022-06-28" },
-  EmTech:  { id: "328508e99dda802bb543d2871feaad8c", apiVersion: "2022-06-28" },
-  Duncan:  { id: "328508e99dda800a939af88618098413", apiVersion: "2022-06-28" },
-  Cinday:  { id: "340508e99dda80469c3ee9df0342e02a", apiVersion: "2022-06-28" },
+  Brad:    { ids: ["28b508e99dda81ba8d7f000b84b83fbd", "28b508e99dda81738029ce0e348a06be"] },
+  Lindsay: { ids: ["301508e99dda81afaca1c218fb551b46"] },
+  Chris:   { ids: ["2a1508e99dda81698188c34e5ac3f4f5"] },
+  EmTech:  { ids: ["328508e99dda802bb543d2871feaad8c"] },
+  Duncan:  { ids: ["328508e99dda800a939af88618098413"] },
+  Cinday:  { ids: ["340508e99dda80469c3ee9df0342e02a"] },
 };
  
 const PROPS = {
@@ -18,7 +19,7 @@ const PROPS = {
   Cinday:  { status: "Status", editor: null,       title: "IDEA" },
 };
  
-async function queryDB(dbId, token, apiVersion) {
+async function tryQuery(dbId, token) {
   const pages = [];
   let cursor = undefined;
   while (true) {
@@ -26,7 +27,7 @@ async function queryDB(dbId, token, apiVersion) {
     if (cursor) body.start_cursor = cursor;
     const resp = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
       method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": apiVersion, "Content-Type": "application/json" },
+      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (!resp.ok) {
@@ -39,6 +40,20 @@ async function queryDB(dbId, token, apiVersion) {
     cursor = data.next_cursor;
   }
   return pages;
+}
+ 
+// Try each ID until one works
+async function queryWithFallback(ids, token) {
+  let lastErr = null;
+  for (const id of ids) {
+    try {
+      return await tryQuery(id, token);
+    } catch (e) {
+      lastErr = e;
+      continue;
+    }
+  }
+  throw lastErr;
 }
  
 function extract(page, propName) {
@@ -68,9 +83,9 @@ export default async function handler(req, res) {
       const props = PROPS[client];
       let pages;
       try {
-        pages = await queryDB(config.id, token, config.apiVersion);
+        pages = await queryWithFallback(config.ids, token);
       } catch (e) {
-        result[client] = { videos: [], statusCounts: {}, toEditCount: 0, toFilmCount: 0, editors: [], totalVideos: 0, editorProp: props.editor, error: e.message };
+        result[client] = { videos: [], statusCounts: {}, toEditCount: 0, toFilmCount: 0, pipelineCount: 0, editors: [], totalVideos: 0, editorProp: props.editor, error: e.message };
         continue;
       }
  
@@ -89,25 +104,14 @@ export default async function handler(req, res) {
         videos.push({ title, status, editor, id: page.id });
         statusCounts[status] = (statusCounts[status] || 0) + 1;
         if (editor && editor !== "TBD" && editor.trim()) editorSet.add(editor.trim());
- 
         if (sLow === "to edit") toEditCount++;
         if (sLow === "to film") toFilmCount++;
       }
  
-      result[client] = {
-        videos,
-        statusCounts,
-        toEditCount,
-        toFilmCount,
-        pipelineCount: toEditCount + toFilmCount,
-        editors: [...editorSet],
-        totalVideos: pages.length,
-        editorProp: props.editor,
-      };
+      result[client] = { videos, statusCounts, toEditCount, toFilmCount, pipelineCount: toEditCount + toFilmCount, editors: [...editorSet], totalVideos: pages.length, editorProp: props.editor };
     }
     res.status(200).json({ success: true, data: result, syncedAt: new Date().toISOString() });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
- 
