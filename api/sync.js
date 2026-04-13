@@ -1,7 +1,4 @@
 // api/sync.js — Vercel Serverless Function for Notion Sync
-import { Client } from "@notionhq/client";
-
-const notion = new Client({ auth: process.env.NOTION_TOKEN });
 
 const DATABASES = {
   Brad: "28b508e99dda81738029ce0e348a06be",
@@ -20,22 +17,6 @@ const PIPELINE_STATUSES = [
   "edit - in progress", "brand approval pen", "waiting for approval"
 ];
 
-async function queryDatabase(dbId) {
-  const pages = [];
-  let cursor = undefined;
-  while (true) {
-    const response = await notion.databases.query({
-      database_id: dbId,
-      start_cursor: cursor,
-      page_size: 100,
-    });
-    pages.push(...response.results);
-    if (!response.has_more) break;
-    cursor = response.next_cursor;
-  }
-  return pages;
-}
-
 function extractProperty(page, propName) {
   const prop = page.properties[propName];
   if (!prop) return null;
@@ -49,17 +30,33 @@ function extractProperty(page, propName) {
 }
 
 export default async function handler(req, res) {
-  // CORS headers
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   try {
+    // Import and initialize inside handler to ensure env vars are available
+    const { Client } = await import("@notionhq/client");
+    const notion = new Client({ auth: process.env.NOTION_TOKEN });
+
     const result = {};
 
     for (const [client, dbId] of Object.entries(DATABASES)) {
       const props = PROPS[client];
-      const pages = await queryDatabase(dbId);
+      const pages = [];
+      let cursor = undefined;
+
+      // Paginate all pages
+      while (true) {
+        const response = await notion.databases.query({
+          database_id: dbId,
+          start_cursor: cursor,
+          page_size: 100,
+        });
+        pages.push(...response.results);
+        if (!response.has_more) break;
+        cursor = response.next_cursor;
+      }
 
       const videos = [];
       const statusCounts = {};
@@ -93,7 +90,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ success: true, data: result, syncedAt: new Date().toISOString() });
   } catch (err) {
-    console.error("Sync error:", err.message);
+    console.error("Sync error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 }
