@@ -100,13 +100,14 @@ export default function App() {
     closeAll();
     showToast(`Assigned: ${video.title}`);
     const eProp = editorProps[cl];
-    if (eProp && video.id) {
+    if (video.id) {
       try {
         await fetch("/api/update-editor", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ pageId: video.id, editor: ed, editorProp: eProp }),
+          body: JSON.stringify({ pageId: video.id, editor: ed, editorProp: eProp, videoTitle: video.title, client: cl }),
         });
+        showToast("Updated in Notion");
       } catch (err) { console.error("Notion update failed:", err); }
     }
   };
@@ -128,17 +129,27 @@ export default function App() {
       const resp = await fetch("/api/sync");
       const json = await resp.json();
       if (!json.success) throw new Error(json.error);
-      const newPL={};const newBD={};const newVids={};const allEd=new Set(editors);const newEP={};
+      const newPL={};const newBD={};const newVids={};const newEP={};
+      // Collect editors with case-insensitive dedup
+      const editorMap = new Map();
+      editors.forEach(e => editorMap.set(e.toLowerCase(), e));
+
       for (const [cl, data] of Object.entries(json.data)) {
         newPL[cl]=data.pipelineCount||0;
         newBD[cl]={toEdit:data.toEditCount||0,toFilm:data.toFilmCount||0,...(data.statusCounts||{})};
         newVids[cl]=data.videos||[];
         if(data.editorProp) newEP[cl]=data.editorProp;
-        (data.editors||[]).forEach(e=>allEd.add(e));
+        (data.editors||[]).forEach(e => {
+          const key = e.toLowerCase();
+          // Keep the version with proper capitalization (first letter uppercase)
+          if (!editorMap.has(key)) {
+            editorMap.set(key, e.charAt(0).toUpperCase() + e.slice(1).toLowerCase());
+          }
+        });
         if(!clients.includes(cl))setClients(p=>[...p,cl]);
       }
       setPipeline(newPL);setPipelineBreakdown(newBD);setNotionVideos(newVids);
-      setEditors([...allEd]);setEditorProps(newEP);
+      setEditors([...editorMap.values()]);setEditorProps(newEP);
       setLastSync(new Date().toLocaleTimeString());
       showToast("Synced from Notion");
     } catch(err){ showToast("Sync failed: "+err.message,true); }
