@@ -181,15 +181,15 @@ export default function App() {
         @keyframes glow{0%,100%{box-shadow:0 0 8px ${Y.accentGlow}}50%{box-shadow:0 0 20px ${Y.accentGlow}}}
         .fu{animation:fadeUp .22s ease-out}
         .cell{transition:all .15s}.cell:hover{background:${Y.card} !important;border-color:${Y.cardBorder} !important}
-        .chip{transition:all .18s;cursor:grab}.chip:hover{transform:scale(1.01)}
+        .chip{transition:all .18s;cursor:grab}.chip:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.3) !important}
         .hov-show:hover .hov-target{opacity:1 !important}
         .drag-over{box-shadow:inset 0 0 0 2px ${Y.accent}60 !important}
-        .add-more{opacity:0;transition:opacity .15s}.cell:hover .add-more{opacity:1}
+        .add-more{opacity:0;transition:all .15s}.cell:hover .add-more{opacity:1}
         .sync-spin{animation:spin 1s linear infinite}
-        .vid-pick{cursor:pointer;transition:all .12s;border:1px solid transparent;border-radius:5px;padding:5px 8px;background:rgba(0,0,0,0.2)}
-        .vid-pick:hover{border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.04)}
+        .vid-pick{cursor:pointer;transition:all .12s;border:1px solid transparent;border-radius:6px}
+        .vid-pick:hover{border-color:${Y.accent}30 !important;background:rgba(245,158,11,0.04) !important;transform:translateY(-1px)}
         .ntag{font-size:8px;padding:1px 5px;border-radius:4px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase}
-        .status-tag{font-size:7px;padding:1px 4px;border-radius:3px;font-weight:700;font-family:'JetBrains Mono',monospace}
+        .status-tag{font-size:7px;padding:2px 5px;border-radius:4px;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:0.3px}
       `}</style>
 
       <div style={{position:"absolute",top:-300,left:"20%",width:800,height:800,borderRadius:"50%",background:"radial-gradient(circle,rgba(245,158,11,0.04) 0%,transparent 60%)",pointerEvents:"none"}}/>
@@ -299,8 +299,8 @@ export default function App() {
 
         {/* GRID */}
         <div style={{overflowX:"auto",paddingBottom:4}}>
-          <div style={{minWidth:920}}>
-            <div style={{display:"grid",gridTemplateColumns:"160px repeat(6,1fr)",gap:3,marginBottom:3}}>
+          <div style={{minWidth:1060}}>
+            <div style={{display:"grid",gridTemplateColumns:"150px repeat(6,1fr)",gap:3,marginBottom:3}}>
               <div style={{padding:10,fontSize:10,color:Y.textMuted,letterSpacing:2.5,fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"flex-end",fontWeight:700}}>EDITORS</div>
               {DAYS.map((day,i)=>{const d=new Date(ws);d.setDate(d.getDate()+i);const isT=isCW&&i===tI;return(
                 <div key={day} style={{padding:"10px 8px",textAlign:"center",borderRadius:"12px 12px 0 0",background:isT?Y.todayBg:"rgba(255,255,255,0.01)",border:isT?"1px solid "+Y.todayBorder:"1px solid rgba(255,255,255,0.03)",borderBottom:"none",position:"relative"}}>
@@ -312,8 +312,8 @@ export default function App() {
             </div>
 
             {editors.map((ed,eI)=>{const ld=editorLoad(ed);return(
-              <div key={ed} style={{display:"grid",gridTemplateColumns:"160px repeat(6,1fr)",gap:3,marginBottom:3}}>
-                <div className="hov-show" style={{padding:"10px 12px",background:"rgba(255,255,255,0.01)",border:"1px solid rgba(255,255,255,0.03)",borderRadius:eI===0?"12px 0 0 0":eI===editors.length-1?"0 0 0 12px":"0",display:"flex",flexDirection:"column",justifyContent:"center",gap:6,minHeight:72}}>
+              <div key={ed} style={{display:"grid",gridTemplateColumns:"150px repeat(6,1fr)",gap:3,marginBottom:3}}>
+                <div className="hov-show" style={{padding:"12px 14px",background:"rgba(255,255,255,0.01)",border:"1px solid rgba(255,255,255,0.03)",borderRadius:eI===0?"12px 0 0 0":eI===editors.length-1?"0 0 0 12px":"0",display:"flex",flexDirection:"column",justifyContent:"center",gap:8,minHeight:80}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     {renI===eI?(
                       <input ref={rR} value={renV} onChange={e=>setRenV(e.target.value)}
@@ -348,35 +348,37 @@ export default function App() {
                       onDragOver={e=>{e.preventDefault();e.currentTarget.classList.add("drag-over");}}
                       onDragLeave={e=>e.currentTarget.classList.remove("drag-over")}
                       onDrop={e=>{e.currentTarget.classList.remove("drag-over");handleDropCell(day,ed);}}
-                      style={{padding:6,background:isT?"rgba(245,158,11,0.02)":"rgba(255,255,255,0.006)",border:isT?"1px solid rgba(245,158,11,0.08)":"1px solid rgba(255,255,255,0.03)",cursor:"pointer",minHeight:72,
+                      style={{padding:8,background:isT?"rgba(245,158,11,0.02)":"rgba(255,255,255,0.006)",border:isT?"1px solid rgba(245,158,11,0.08)":"1px solid rgba(255,255,255,0.03)",cursor:"pointer",minHeight:80,verticalAlign:"top",
                         borderRadius:eI===0&&dI===5?"0 12px 0 0":eI===editors.length-1&&dI===5?"0 0 12px 0":"0"}}>
-                      <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      <div style={{display:"flex",flexDirection:"column",gap:6,height:"100%"}}>
 
                         {ci.map(a=>{const co=col(a.cl);return(
                           <div key={a.id} className="chip" draggable onDragStart={e=>{e.stopPropagation();setDragA(a);}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
-                            style={{background:co.bg,border:"1px solid "+co.border+"28",borderRadius:8,padding:"5px 8px"}}>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                              <div style={{display:"flex",alignItems:"center",gap:4}}>
-                                <span style={{width:5,height:5,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:11,fontWeight:700,color:co.text}}>{a.cl}</span>
+                            style={{background:co.bg,border:"1px solid "+co.border+"28",borderRadius:8,padding:"8px 10px",minHeight:48,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:3}}>
+                              <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0,flex:1}}>
+                                <span style={{width:6,height:6,borderRadius:"50%",background:co.dot,flexShrink:0}}/>
+                                <span style={{fontSize:11,fontWeight:700,color:co.text,whiteSpace:"nowrap"}}>{a.cl}</span>
                               </div>
-                              <span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}} style={{cursor:"pointer",color:co.text,opacity:0.3,fontSize:12,lineHeight:1}}>×</span>
+                              <span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}} style={{cursor:"pointer",color:co.text,opacity:0.25,fontSize:12,lineHeight:1,flexShrink:0,marginLeft:4,transition:"opacity .15s"}}
+                                onMouseEnter={e=>e.currentTarget.style.opacity="0.8"} onMouseLeave={e=>e.currentTarget.style.opacity="0.25"}>×</span>
                             </div>
-                            <div style={{fontSize:9,color:co.text+"90",paddingLeft:9,marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.vn||"—"}</div>
+                            <div style={{fontSize:9,color:co.text+"80",paddingLeft:11,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"100%",lineHeight:"14px",fontWeight:500}} title={a.vn||""}>{a.vn||"—"}</div>
                           </div>
                         );})}
 
                         {/* STEP 1: Client picker */}
                         {isPickC&&!isPickV&&!isManual&&(
-                          <div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:3}}>
+                          <div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:4}}>
                             {clients.map(c=>{const co=col(c);const ready=getAssignable(c).length;return(
                               <button key={c} onClick={()=>{setPickingClient(null);setPickingVideo({day,ed,cl:c});}}
-                                style={{background:co.bg,border:"1px solid "+co.border+"25",borderRadius:6,padding:"5px 9px",color:co.text,fontSize:11,fontWeight:600,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center"}}
+                                style={{background:co.bg,border:"1px solid "+co.border+"25",borderRadius:7,padding:"7px 10px",color:co.text,fontSize:11,fontWeight:600,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",minHeight:32,transition:"all .15s"}}
                                 onMouseEnter={e=>e.currentTarget.style.borderColor=co.border+"60"} onMouseLeave={e=>e.currentTarget.style.borderColor=co.border+"25"}>
                                 <span>{c}</span>
-                                {ready>0&&<span style={{fontSize:8,background:co.border+"25",color:co.text,borderRadius:8,padding:"0 5px",fontWeight:800}}>{ready}</span>}
+                                {ready>0&&<span style={{fontSize:8,background:co.border+"25",color:co.text,borderRadius:8,padding:"1px 6px",fontWeight:800}}>{ready}</span>}
                               </button>
                             );})}
-                            <button onClick={closeAll} style={{background:"none",border:"none",color:Y.textMuted,fontSize:9,cursor:"pointer",fontFamily:"inherit",marginTop:2}}>cancel</button>
+                            <button onClick={closeAll} style={{background:"none",border:"none",color:Y.textMuted,fontSize:9,cursor:"pointer",fontFamily:"inherit",marginTop:2,letterSpacing:0.5}}>cancel</button>
                           </div>
                         )}
 
@@ -392,9 +394,10 @@ export default function App() {
                                 <button onClick={()=>{setPickingVideo(null);setPickingClient({day,ed});}} style={{background:"none",border:"none",color:Y.textDim,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>← back</button>
                               </div>
                               {vids.length>0 ? vids.map(v=>(
-                                <div key={v.id} className="vid-pick" onClick={()=>assignVideo(day,ed,pickingVideo.cl,v)}>
-                                  <div style={{fontSize:10,fontWeight:600,color:Y.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{v.title}</div>
-                                  <div style={{display:"flex",gap:4,marginTop:2}}>
+                                <div key={v.id} className="vid-pick" onClick={()=>assignVideo(day,ed,pickingVideo.cl,v)}
+                                  style={{padding:"6px 10px",borderRadius:6,background:"rgba(0,0,0,0.25)",minHeight:38,display:"flex",flexDirection:"column",justifyContent:"center"}}>
+                                  <div style={{fontSize:10,fontWeight:600,color:Y.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:"15px"}} title={v.title}>{v.title}</div>
+                                  <div style={{display:"flex",gap:4,marginTop:3}}>
                                     <span className="status-tag" style={{background:v.status.toLowerCase().includes("edit")?"rgba(244,63,94,0.15)":"rgba(251,191,36,0.15)",color:v.status.toLowerCase().includes("edit")?"#fda4af":"#fcd34d"}}>{v.status}</span>
                                     {v.editor&&<span className="status-tag" style={{background:"rgba(255,255,255,0.05)",color:"#71717a"}}>{v.editor}</span>}
                                   </div>
@@ -424,8 +427,10 @@ export default function App() {
                           </div>
                         );})}
 
-                        {!ci.length&&!isOpen&&(<div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:52,color:Y.textMuted+"40",fontSize:22,fontWeight:300}}>+</div>)}
-                        {ci.length>0&&!isOpen&&(<div className="add-more" onClick={e=>{e.stopPropagation();closeAll();setPickingClient({day,ed});}} style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"3px 0",borderRadius:5,border:"1px dashed "+Y.surfaceBorder,color:Y.textMuted,fontSize:11,cursor:"pointer",marginTop:1}}>+ add</div>)}
+                        {!ci.length&&!isOpen&&(<div style={{display:"flex",alignItems:"center",justifyContent:"center",height:56,color:Y.textMuted+"30",fontSize:20,fontWeight:300,transition:"color .2s"}}
+                          onMouseEnter={e=>e.currentTarget.style.color=Y.textDim} onMouseLeave={e=>e.currentTarget.style.color=Y.textMuted+"30"}>+</div>)}
+                        {ci.length>0&&!isOpen&&(<div className="add-more" onClick={e=>{e.stopPropagation();closeAll();setPickingClient({day,ed});}} style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"4px 0",borderRadius:6,border:"1px dashed "+Y.surfaceBorder,color:Y.textMuted,fontSize:10,cursor:"pointer",marginTop:2,letterSpacing:1,fontWeight:600}}
+                          onMouseEnter={e=>{e.currentTarget.style.borderColor=Y.accent+"40";e.currentTarget.style.color=Y.accent;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=Y.surfaceBorder;e.currentTarget.style.color=Y.textMuted;}}>+ ADD</div>)}
                       </div>
                     </div>
                   );
