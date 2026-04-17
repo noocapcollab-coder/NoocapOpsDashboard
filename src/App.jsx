@@ -66,7 +66,7 @@ export default function App() {
   useEffect(()=>{if(addC&&cR.current)cR.current.focus();},[addC]);
   useEffect(()=>{if(addE&&eR.current)eR.current.focus();},[addE]);
   useEffect(()=>{if(renI!==null&&rR.current)rR.current.focus();},[renI]);
-  useEffect(()=>{if(manualMode&&manualRef.current)manualRef.current.focus();},[manualMode]);
+  useEffect(()=>{if(manualMode){setTimeout(()=>{if(manualRef.current)manualRef.current.focus();},50);}},[manualMode]);
 
   const showToast = useCallback((msg,isErr)=>{setToast({msg,isErr});setTimeout(()=>setToast(null),3000);},[]);
 
@@ -91,7 +91,7 @@ export default function App() {
   const closeAll = () => { setPickingClient(null);setPickingVideo(null);setManualMode(null); };
 
   const assignVideo = async (day, ed, cl, video) => {
-    setAssigns(p => [...p, { id:uid(), wk, day, ed, cl, vn:video.title, notionId:video.id }]);
+    setAssigns(p => [...p, { id:uid(), wk, day, ed, cl, vn:video.title, notionId:video.id, done:false }]);
     closeAll(); showToast(`Assigned: ${video.title}`);
     const eProp = editorProps[cl];
     if (video.id) {
@@ -102,9 +102,52 @@ export default function App() {
   const assignManual = () => {
     if(!manualMode||!manualName.trim()) return;
     const {day,ed,cl}=manualMode;
-    setAssigns(p=>[...p,{id:uid(),wk,day,ed,cl,vn:manualName.trim()}]);
+    setAssigns(p=>[...p,{id:uid(),wk,day,ed,cl,vn:manualName.trim(),done:false}]);
     closeAll();setManualName("");showToast("Assigned");
   };
+
+  // Mark video as done — updates Notion + local state
+  const markDone = async (assignId) => {
+    const a = assigns.find(x=>x.id===assignId);
+    if(!a) return;
+    setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:true}:x));
+    showToast("Marked done ✓");
+    try {
+      await fetch("/api/mark-done", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed }),
+      });
+    } catch(err){ console.error("Mark done failed:", err); }
+  };
+
+  // Auto-rollover: at 6AM, move unchecked yesterday's videos to today
+  useEffect(()=>{
+    const checkRollover = () => {
+      const now2 = new Date();
+      if(now2.getHours() < 6) return; // only after 6AM
+      const todayIdx = now2.getDay()===0?-1:now2.getDay()-1;
+      const yesterdayIdx = todayIdx-1;
+      if(yesterdayIdx < 0) return; // don't rollover from before Monday
+      const yesterday = DAYS[yesterdayIdx];
+      const today2 = DAYS[todayIdx];
+      if(!yesterday||!today2) return;
+      const currentWk = getMonday(now2).toISOString().slice(0,10);
+      setAssigns(prev => {
+        let changed = false;
+        const updated = prev.map(a=>{
+          if(a.wk===currentWk && a.day===yesterday && !a.done){
+            changed = true;
+            return {...a, day:today2};
+          }
+          return a;
+        });
+        return changed ? updated : prev;
+      });
+    };
+    checkRollover();
+    const interval = setInterval(checkRollover, 60*60*1000); // check every hour
+    return ()=>clearInterval(interval);
+  },[]);
 
   const handleDropCell = (day,ed) => { if(dragA){setAssigns(p=>p.map(a=>a.id===dragA.id?{...a,day,ed,wk}:a));setDragA(null);showToast("Rescheduled");} };
 
@@ -159,6 +202,7 @@ export default function App() {
         .cell{transition:all .12s}.cell:hover{background:rgba(245,158,11,0.025) !important;border-color:rgba(245,158,11,0.1) !important}
         .chip{transition:all .12s;cursor:grab;user-select:none}.chip:hover{background:rgba(255,255,255,0.03) !important}
         .chip:active{cursor:grabbing;opacity:0.7}
+        .chip-done{opacity:0.5;cursor:default !important}
         .hov-show:hover .hov-target{opacity:1 !important}
         .drag-over{box-shadow:inset 0 0 0 2px ${Y.accent}50 !important}
         .add-more{opacity:0;transition:opacity .12s}.cell:hover .add-more{opacity:1}
@@ -204,11 +248,11 @@ export default function App() {
               {!todayAssigns.length&&<span style={{fontSize:11,color:Y.textMuted,fontStyle:"italic",marginLeft:6}}>No videos</span>}
             </div>
             {todayAssigns.length>0&&(<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {todayAssigns.map(a=>{const co=col(a.cl);return(
-                <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,background:co.bg,border:"1px solid "+co.border+"35",borderRadius:8,padding:"6px 12px"}}>
-                  <span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>
-                  <span style={{fontSize:11,fontWeight:700,color:co.text}}>{a.cl}</span>
-                  <span style={{fontSize:10,color:co.text+"80",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.vn}</span>
+              {todayAssigns.map(a=>{const co=col(a.cl);const isDone=a.done;return(
+                <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,background:isDone?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(isDone?"rgba(34,197,94,0.25)":co.border+"35"),borderRadius:8,padding:"6px 12px",opacity:isDone?0.6:1}}>
+                  {isDone?<span style={{color:"#22c55e",fontSize:12,fontWeight:700}}>✓</span>:<span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>}
+                  <span style={{fontSize:11,fontWeight:700,color:isDone?"#86efac":co.text,textDecoration:isDone?"line-through":"none"}}>{a.cl}</span>
+                  <span style={{fontSize:10,color:isDone?"#86efac60":co.text+"80",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.vn}</span>
                   <span style={{fontSize:9,color:"#52525b"}}>{a.ed}</span>
                 </div>
               );})}
@@ -325,16 +369,20 @@ export default function App() {
                         borderRadius:eI===0&&dI===5?"0 10px 0 0":eI===editors.length-1&&dI===5?"0 0 10px 0":"0"}}>
 
                       <div style={{display:"flex",flexDirection:"column",gap:3,minHeight:"100%"}}>
-                        {/* ── COMPACT CHIPS ── one line each */}
-                        {ci.map(a=>{const co=col(a.cl);return(
-                          <div key={a.id} className="chip" draggable
-                            onDragStart={e=>{e.stopPropagation();setDragA(a);}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
-                            style={{background:co.bg,border:"1px solid "+co.border+"22",borderRadius:6,padding:"5px 8px",display:"flex",alignItems:"center",gap:5,minHeight:28}}>
-                            <span style={{width:5,height:5,borderRadius:"50%",background:co.dot,flexShrink:0}}/>
-                            <span style={{fontSize:10,fontWeight:700,color:co.text,flexShrink:0}}>{a.cl}</span>
-                            <span style={{fontSize:9,color:co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}} title={a.vn}>{a.vn||"—"}</span>
-                            <span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}}
-                              style={{cursor:"pointer",color:co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>
+                        {/* ── COMPACT CHIPS with checkbox ── */}
+                        {ci.map(a=>{const co=col(a.cl);const isDone=a.done;return(
+                          <div key={a.id} className="chip" draggable={!isDone}
+                            onDragStart={e=>{if(!isDone){e.stopPropagation();setDragA(a);}}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
+                            style={{background:isDone?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(isDone?"rgba(34,197,94,0.2)":co.border+"22"),borderRadius:6,padding:"4px 6px",display:"flex",alignItems:"center",gap:4,minHeight:28,opacity:isDone?0.6:1}}>
+                            <span onClick={e=>{e.stopPropagation();if(!isDone)markDone(a.id);}}
+                              style={{width:14,height:14,borderRadius:3,border:isDone?"none":"1.5px solid "+co.border+"50",background:isDone?"#22c55e":"transparent",cursor:isDone?"default":"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",transition:"all .15s"}}>
+                              {isDone&&"✓"}
+                            </span>
+                            <span style={{width:5,height:5,borderRadius:"50%",background:isDone?"#22c55e":co.dot,flexShrink:0}}/>
+                            <span style={{fontSize:10,fontWeight:700,color:isDone?"#86efac":co.text,flexShrink:0}}>{a.cl}</span>
+                            <span style={{fontSize:9,color:isDone?"#86efac60":co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDone?"line-through":"none"}} title={a.vn}>{a.vn||"—"}</span>
+                            {!isDone&&<span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}}
+                              style={{cursor:"pointer",color:co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>}
                           </div>
                         );})}
 
@@ -371,25 +419,37 @@ export default function App() {
                                   <span className="stag" style={{background:v.status.toLowerCase().includes("edit")?"rgba(244,63,94,0.12)":"rgba(251,191,36,0.12)",color:v.status.toLowerCase().includes("edit")?"#fda4af":"#fcd34d",flexShrink:0}}>{v.status.toLowerCase().includes("edit")?"E":"F"}</span>
                                 </div>
                               )):(<div style={{fontSize:9,color:Y.textMuted,fontStyle:"italic",padding:3}}>No videos</div>)}
-                              <button onClick={()=>{setPickingVideo(null);setManualMode({day,ed,cl:pickingVideo.cl});setManualName("");}}
-                                style={{background:"none",border:"1px dashed "+Y.surfaceBorder,borderRadius:4,padding:"3px",color:Y.textDim,fontSize:8,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:1}}>✎ manual</button>
+                              <button onClick={e=>{e.stopPropagation();setPickingVideo(null);setManualMode({day,ed,cl:pickingVideo.cl});setManualName("");}}
+                                onMouseDown={e=>e.stopPropagation()}
+                                style={{background:"none",border:"1px dashed "+Y.surfaceBorder,borderRadius:4,padding:"4px",color:Y.textDim,fontSize:8,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:1,transition:"all .12s"}}
+                                onMouseEnter={e=>{e.currentTarget.style.borderColor=Y.accent+"40";e.currentTarget.style.color=Y.accent;}}
+                                onMouseLeave={e=>{e.currentTarget.style.borderColor=Y.surfaceBorder;e.currentTarget.style.color=Y.textDim;}}>✎ Type manually</button>
                             </div>
                           );
                         })()}
 
                         {/* Manual */}
                         {isManual&&(()=>{const co=col(manualMode.cl);return(
-                          <div className="fu" onClick={e=>e.stopPropagation()} style={{background:co.bg,border:"1px solid "+co.border+"35",borderRadius:6,padding:"5px 7px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:3}}>
-                              <span style={{width:4,height:4,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{manualMode.cl}</span>
+                          <div className="fu" onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}
+                            style={{background:co.bg,border:"1px solid "+co.border+"35",borderRadius:6,padding:"6px 8px"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
+                              <span style={{width:5,height:5,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{manualMode.cl}</span>
+                              <button onClick={e=>{e.stopPropagation();closeAll();}} style={{marginLeft:"auto",background:"none",border:"none",color:Y.textMuted,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>×</button>
                             </div>
-                            <input ref={manualRef} value={manualName} onChange={e=>setManualName(e.target.value)}
-                              onKeyDown={e=>{if(e.key==="Enter")assignManual();if(e.key==="Escape")closeAll();}}
-                              placeholder="Name ↵" style={{...inp,width:"100%",fontSize:9,padding:"3px 5px",background:"rgba(0,0,0,0.25)",borderColor:co.border+"25",color:co.text,marginBottom:3}}/>
-                            <div style={{display:"flex",gap:2}}>
-                              <button onClick={assignManual} style={{flex:1,background:co.border+"15",border:"1px solid "+co.border+"25",borderRadius:4,padding:"2px 0",color:co.text,fontSize:8,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Save</button>
-                              <button onClick={closeAll} style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:4,padding:"2px 5px",color:"#52525b",fontSize:8,cursor:"pointer",fontFamily:"inherit"}}>×</button>
-                            </div>
+                            <input ref={manualRef} value={manualName}
+                              onClick={e=>e.stopPropagation()}
+                              onMouseDown={e=>e.stopPropagation()}
+                              onChange={e=>setManualName(e.target.value)}
+                              onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"&&manualName.trim())assignManual();if(e.key==="Escape")closeAll();}}
+                              placeholder="Type video name and press Enter ↵"
+                              style={{width:"100%",fontSize:10,padding:"6px 8px",background:"rgba(0,0,0,0.3)",border:"1px solid "+co.border+"30",borderRadius:5,color:co.text,outline:"none",fontFamily:"'Outfit',sans-serif",marginBottom:4}}
+                              autoFocus/>
+                            <button onClick={e=>{e.stopPropagation();assignManual();}}
+                              style={{width:"100%",background:co.border+"20",border:"1px solid "+co.border+"30",borderRadius:5,padding:"4px 0",color:co.text,fontSize:9,cursor:"pointer",fontFamily:"inherit",fontWeight:700,transition:"all .12s"}}
+                              onMouseEnter={e=>e.currentTarget.style.background=co.border+"35"}
+                              onMouseLeave={e=>e.currentTarget.style.background=co.border+"20"}>
+                              Save
+                            </button>
                           </div>
                         );})}
 
@@ -420,8 +480,8 @@ export default function App() {
 
         <div style={{marginTop:20,padding:"12px 0",borderTop:"1px solid "+Y.surfaceBorder,display:"flex",gap:20,flexWrap:"wrap",fontSize:9,color:Y.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>
           <span>⬡ Sync → To Edit & To Film</span>
-          <span>⬡ Click cell → client → video</span>
-          <span>⬡ Auto-updates Notion</span>
+          <span>⬡ ☐ Check = Done in Notion</span>
+          <span>⬡ Unchecked rolls to next day at 6AM</span>
           <span>⬡ Drag to reschedule</span>
         </div>
       </div>
