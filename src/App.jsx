@@ -106,18 +106,22 @@ export default function App() {
     closeAll();setManualName("");showToast("Assigned");
   };
 
-  // Mark video as done — updates Notion + local state
-  const markDone = async (assignId) => {
+  // Toggle done/undone — updates Notion both ways
+  const toggleDone = async (assignId) => {
     const a = assigns.find(x=>x.id===assignId);
     if(!a) return;
-    setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:true}:x));
-    showToast("Marked done ✓");
+    const newDone = !a.done;
+    setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:newDone}:x));
+    showToast(newDone ? "Marked done ✓" : "Unmarked — back to in progress");
     try {
       await fetch("/api/mark-done", {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed }),
+        body:JSON.stringify({
+          notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed,
+          action: newDone ? "done" : "undo"
+        }),
       });
-    } catch(err){ console.error("Mark done failed:", err); }
+    } catch(err){ console.error("Toggle done failed:", err); }
   };
 
   // Auto-rollover: at 6AM, move unchecked yesterday's videos to today
@@ -374,15 +378,16 @@ export default function App() {
                           <div key={a.id} className="chip" draggable={!isDone}
                             onDragStart={e=>{if(!isDone){e.stopPropagation();setDragA(a);}}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
                             style={{background:isDone?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(isDone?"rgba(34,197,94,0.2)":co.border+"22"),borderRadius:6,padding:"4px 6px",display:"flex",alignItems:"center",gap:4,minHeight:28,opacity:isDone?0.6:1}}>
-                            <span onClick={e=>{e.stopPropagation();if(!isDone)markDone(a.id);}}
-                              style={{width:14,height:14,borderRadius:3,border:isDone?"none":"1.5px solid "+co.border+"50",background:isDone?"#22c55e":"transparent",cursor:isDone?"default":"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",transition:"all .15s"}}>
+                            <span onClick={e=>{e.stopPropagation();toggleDone(a.id);}}
+                              style={{width:14,height:14,borderRadius:3,border:isDone?"none":"1.5px solid "+co.border+"50",background:isDone?"#22c55e":"transparent",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",transition:"all .15s"}}
+                              title={isDone?"Click to undo":"Click to mark done"}>
                               {isDone&&"✓"}
                             </span>
                             <span style={{width:5,height:5,borderRadius:"50%",background:isDone?"#22c55e":co.dot,flexShrink:0}}/>
                             <span style={{fontSize:10,fontWeight:700,color:isDone?"#86efac":co.text,flexShrink:0}}>{a.cl}</span>
                             <span style={{fontSize:9,color:isDone?"#86efac60":co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDone?"line-through":"none"}} title={a.vn}>{a.vn||"—"}</span>
-                            {!isDone&&<span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}}
-                              style={{cursor:"pointer",color:co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>}
+                            <span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}}
+                              style={{cursor:"pointer",color:isDone?"#86efac30":co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>
                           </div>
                         );})}
 
