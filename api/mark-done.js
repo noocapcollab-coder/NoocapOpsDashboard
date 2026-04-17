@@ -1,27 +1,22 @@
-// api/mark-done.js — Mark video as Done in Editors Data + Client DB
+// api/mark-done.js — Toggle video Done/Undo in Editors Data + Client DB
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 
-// Map client names to their DB IDs for status update
-const CLIENT_DBS = {
-  Brad:    "28b508e99dda81738029ce0e348a06be",
-  Lindsay: "301508e99dda81afaca1c218fb551b46",
-  Chris:   "2a1508e99dda81698188c34e5ac3f4f5",
-  EmTech:  "328508e99dda802bb543d2871feaad8c",
-  Duncan:  "328508e99dda800a939af88618098413",
-  Cinday:  "340508e99dda80469c3ee9df0342e02a",
-};
-
-// Status property names per client (some use "Status")
 const STATUS_PROPS = {
   Brad: "Status", Lindsay: "Status", Chris: "Status",
   EmTech: "Status", Duncan: "Status", Cinday: "Status",
 };
 
-// Done status names per client (some use "READY", "Done", etc.)
+// What "done" means per client
 const DONE_STATUS = {
   Brad: "READY", Lindsay: "READY", Chris: "READY",
   EmTech: "READY", Duncan: "READY", Cinday: "POSTED",
+};
+
+// What "undo" reverts to per client
+const UNDO_STATUS = {
+  Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
+  EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress",
 };
 
 export default async function handler(req, res) {
@@ -34,20 +29,24 @@ export default async function handler(req, res) {
   const token = process.env.NOTION_TOKEN;
   if (!token) return res.status(500).json({ success: false, error: "NOTION_TOKEN not set" });
 
-  const { notionPageId, client, videoTitle, editor } = req.body;
+  const { notionPageId, client, videoTitle, editor, action } = req.body;
   if (!client) return res.status(400).json({ success: false, error: "client required" });
 
-  const results = { clientUpdate: false, editorsUpdate: false };
+  const isDone = action !== "undo";
+  const results = { clientUpdate: false, editorsUpdate: false, action: isDone ? "done" : "undo" };
 
-  // 1. Update client's content planner — set status to Done/READY
+  // 1. Update client's content planner status
   if (notionPageId) {
     try {
       const statusProp = STATUS_PROPS[client] || "Status";
-      const doneValue = DONE_STATUS[client] || "READY";
+      const statusValue = isDone
+        ? (DONE_STATUS[client] || "READY")
+        : (UNDO_STATUS[client] || "To Edit");
+
       const resp = await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify({ properties: { [statusProp]: { status: { name: doneValue } } } }),
+        body: JSON.stringify({ properties: { [statusProp]: { status: { name: statusValue } } } }),
       });
       results.clientUpdate = resp.ok;
       if (!resp.ok) results.clientError = await resp.text();
@@ -58,7 +57,6 @@ export default async function handler(req, res) {
 
   // 2. Find and update the row in Editors Data
   try {
-    // Search for the row by video title
     const searchResp = await fetch(`https://api.notion.com/v1/databases/${EDITORS_DB_ID}/query`, {
       method: "POST",
       headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
@@ -77,15 +75,20 @@ export default async function handler(req, res) {
       const searchData = await searchResp.json();
       if (searchData.results.length > 0) {
         const editorPageId = searchData.results[0].id;
-        const updateResp = await fetch(`https://api.notion.com/v1/pages/${editorPageId}`, {
-          method: "PATCH",
-          headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-          body: JSON.stringify({
-            properties: {
+
+        const updateProps = isDone
+          ? {
               "Status": { status: { name: "Done" } },
               "Submission Date": { date: { start: new Date().toISOString().split("T")[0] } },
             }
-          }),
+          : {
+              "Status": { status: { name: "In progress" } },
+            };
+
+        const updateResp = await fetch(`https://api.notion.com/v1/pages/${editorPageId}`, {
+          method: "PATCH",
+          headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+          body: JSON.stringify({ properties: updateProps }),
         });
         results.editorsUpdate = updateResp.ok;
         if (!updateResp.ok) results.editorsError = await updateResp.text();
