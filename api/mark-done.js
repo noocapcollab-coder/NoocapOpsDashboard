@@ -4,19 +4,19 @@ const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 
 const STATUS_PROPS = {
   Brad: "Status", Lindsay: "Status", Chris: "Status",
-  EmTech: "Status", Duncan: "Status", Cinday: "Status",
+  EmTech: "Status", Duncan: "Status", Cinday: "Status", Joshua: "Status",
 };
 
 // What "done" means per client
 const DONE_STATUS = {
   Brad: "READY", Lindsay: "READY", Chris: "READY",
-  EmTech: "READY", Duncan: "READY", Cinday: "POSTED",
+  EmTech: "READY", Duncan: "READY", Cinday: "POSTED", Joshua: "READY",
 };
 
 // What "undo" reverts to per client
 const UNDO_STATUS = {
   Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
-  EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress",
+  EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
 };
 
 export default async function handler(req, res) {
