@@ -104,6 +104,9 @@ function extract(page, propName) {
   }
 }
 
+// Editors who no longer work with us — excluded from dashboard
+const EXCLUDED_EDITORS = ["sanjai", "prateek"];
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -142,7 +145,7 @@ export default async function handler(req, res) {
 
         videos.push({ title, status, editor, id: page.id });
         statusCounts[status] = (statusCounts[status] || 0) + 1;
-        if (editor && editor !== "TBD" && editor.trim()) editorSet.add(editor.trim());
+        if (editor && editor !== "TBD" && editor.trim() && !EXCLUDED_EDITORS.includes(editor.trim().toLowerCase())) editorSet.add(editor.trim());
         if (sLow === "to edit") toEditCount++;
         if (sLow === "to film") toFilmCount++;
       }
