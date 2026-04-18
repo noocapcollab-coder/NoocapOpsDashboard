@@ -10,6 +10,7 @@ const PALETTE = {
   EmTech:  { bg:"rgba(245,158,11,0.10)", border:"#f59e0b", text:"#fcd34d", dot:"#f59e0b", glow:"rgba(245,158,11,0.3)", accent:"#d97706" },
   Chris:   { bg:"rgba(6,182,212,0.10)",  border:"#06b6d4", text:"#67e8f9", dot:"#06b6d4", glow:"rgba(6,182,212,0.3)",  accent:"#0891b2" },
   Cinday:  { bg:"rgba(244,63,94,0.10)",  border:"#f43f5e", text:"#fda4af", dot:"#f43f5e", glow:"rgba(244,63,94,0.3)",  accent:"#e11d48" },
+  Joshua:  { bg:"rgba(132,204,22,0.10)", border:"#84cc16", text:"#bef264", dot:"#84cc16", glow:"rgba(132,204,22,0.3)", accent:"#65a30d" },
 };
 const XTRA = [{ bg:"rgba(132,204,22,0.10)", border:"#84cc16", text:"#bef264", dot:"#84cc16", glow:"rgba(132,204,22,0.3)", accent:"#65a30d" }];
 
@@ -28,7 +29,7 @@ const load = (k, fb) => { try { const v=localStorage.getItem(SK+k); return v?JSO
 const save = (k, v) => { try { localStorage.setItem(SK+k, JSON.stringify(v)); } catch{} };
 
 export default function App() {
-  const [clients, setClients] = useState(() => load("clients", ["Brad","Lindsay","Chris","Duncan","EmTech","Cinday"]));
+  const [clients, setClients] = useState(() => load("clients", ["Brad","Lindsay","Chris","Duncan","EmTech","Cinday","Joshua"]));
   const [editors, setEditors] = useState(() => load("editors", ["Parvez","Ananya","Sumith"]));
   const [pipeline, setPipeline] = useState(() => load("pipeline", {}));
   const [pipelineBreakdown, setPipelineBreakdown] = useState(() => load("breakdown", {}));
