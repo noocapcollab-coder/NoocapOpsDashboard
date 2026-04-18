@@ -1,8 +1,8 @@
 // api/sync.js — Notion Sync (To Film + To Edit only)
- 
+
 // Brad has multi-source DB — use search API as workaround
 const BRAD_DB_ID = "28b508e9-9dda-8173-8029-ce0e348a06be";
- 
+
 const DATABASES = {
   Brad:    { useSearch: true, dbId: BRAD_DB_ID },
   Lindsay: { ids: [{ id: "301508e99dda81afaca1c218fb551b46", version: "2022-06-28" }] },
@@ -10,8 +10,9 @@ const DATABASES = {
   EmTech:  { ids: [{ id: "328508e99dda802bb543d2871feaad8c", version: "2022-06-28" }] },
   Duncan:  { ids: [{ id: "328508e99dda800a939af88618098413", version: "2022-06-28" }] },
   Cinday:  { ids: [{ id: "340508e99dda80469c3ee9df0342e02a", version: "2022-06-28" }] },
+  Joshua:  { ids: [{ id: "305508e99dda811b8351e935bb5068be", version: "2022-06-28" }] },
 };
- 
+
 const PROPS = {
   Brad:    { status: "Status", editor: "Editor",  title: "VIDEO" },
   Lindsay: { status: "Status", editor: "Editor",  title: "Video Title" },
@@ -19,8 +20,9 @@ const PROPS = {
   EmTech:  { status: "Status", editor: "EDITOR",  title: "VIDEO" },
   Duncan:  { status: "Status", editor: "EDITOR",  title: "VIDEO" },
   Cinday:  { status: "Status", editor: null,       title: "IDEA" },
+  Joshua:  { status: "Status", editor: "Editor",  title: "Video Title" },
 };
- 
+
 async function tryQuery(dbId, token, apiVersion) {
   const pages = [];
   let cursor = undefined;
@@ -43,7 +45,7 @@ async function tryQuery(dbId, token, apiVersion) {
   }
   return pages;
 }
- 
+
 // Try each ID+version combo until one works
 async function queryWithFallback(entries, token) {
   let lastErr = null;
@@ -57,7 +59,7 @@ async function queryWithFallback(entries, token) {
   }
   throw lastErr;
 }
- 
+
 // Search API fallback for multi-source databases (Brad)
 async function searchPages(dbId, token) {
   const allPages = [];
@@ -88,7 +90,7 @@ async function searchPages(dbId, token) {
   }
   return allPages;
 }
- 
+
 function extract(page, propName) {
   if (!propName) return null;
   const p = page.properties[propName];
@@ -101,15 +103,15 @@ function extract(page, propName) {
     default: return null;
   }
 }
- 
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   if (req.method === "OPTIONS") return res.status(200).end();
- 
+
   const token = process.env.NOTION_TOKEN;
   if (!token) return res.status(500).json({ success: false, error: "NOTION_TOKEN not configured" });
- 
+
   try {
     const result = {};
     for (const [client, config] of Object.entries(DATABASES)) {
@@ -125,26 +127,26 @@ export default async function handler(req, res) {
         result[client] = { videos: [], statusCounts: {}, toEditCount: 0, toFilmCount: 0, pipelineCount: 0, editors: [], totalVideos: 0, editorProp: props.editor, error: e.message };
         continue;
       }
- 
+
       const videos = [];
       const statusCounts = {};
       const editorSet = new Set();
       let toEditCount = 0;
       let toFilmCount = 0;
- 
+
       for (const page of pages) {
         const title = extract(page, props.title) || "Untitled";
         const status = extract(page, props.status) || "Unknown";
         const editor = props.editor ? (extract(page, props.editor) || "") : "";
         const sLow = status.toLowerCase().trim();
- 
+
         videos.push({ title, status, editor, id: page.id });
         statusCounts[status] = (statusCounts[status] || 0) + 1;
         if (editor && editor !== "TBD" && editor.trim()) editorSet.add(editor.trim());
         if (sLow === "to edit") toEditCount++;
         if (sLow === "to film") toFilmCount++;
       }
- 
+
       result[client] = { videos, statusCounts, toEditCount, toFilmCount, pipelineCount: toEditCount + toFilmCount, editors: [...editorSet], totalVideos: pages.length, editorProp: props.editor };
     }
     res.status(200).json({ success: true, data: result, syncedAt: new Date().toISOString() });
@@ -152,4 +154,3 @@ export default async function handler(req, res) {
     res.status(500).json({ success: false, error: err.message });
   }
 }
- 
