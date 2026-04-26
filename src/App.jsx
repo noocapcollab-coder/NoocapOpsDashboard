@@ -172,6 +172,10 @@ export default function App() {
         (data.editors||[]).forEach(e=>{const k=e.toLowerCase();if(!editorMap.has(k))editorMap.set(k,e.charAt(0).toUpperCase()+e.slice(1).toLowerCase());});
         if(!clients.includes(cl))setClients(p=>[...p,cl]);
       }
+      // Always include these editors (pinned team members)
+      const PINNED = ["Parvez","Ananya","Sumith","Anurag"];
+      PINNED.forEach(e => { if(!editorMap.has(e.toLowerCase())) editorMap.set(e.toLowerCase(), e); });
+
       setPipeline(newPL);setPipelineBreakdown(newBD);setNotionVideos(newVids);
       setEditors([...editorMap.values()]);setEditorProps(newEP);
       setLastSync(new Date().toLocaleTimeString());showToast("Synced from Notion");
