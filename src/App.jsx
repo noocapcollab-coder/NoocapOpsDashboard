@@ -30,7 +30,7 @@ const save = (k, v) => { try { localStorage.setItem(SK+k, JSON.stringify(v)); } 
 
 export default function App() {
   const [clients, setClients] = useState(() => load("clients", ["Brad","Lindsay","Chris","Duncan","EmTech","Cinday","Joshua"]));
-  const [editors, setEditors] = useState(() => load("editors", ["Parvez","Ananya","Sumith"]));
+  const [editors, setEditors] = useState(() => load("editors", ["Parvez","Ananya","Sumith","Anurag"]));
   const [pipeline, setPipeline] = useState(() => load("pipeline", {}));
   const [pipelineBreakdown, setPipelineBreakdown] = useState(() => load("breakdown", {}));
   const [notionVideos, setNotionVideos] = useState(() => load("nvideos", {}));
@@ -54,6 +54,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [lastSync, setLastSync] = useState(() => load("lastSync", null));
+  const [excludedEditors, setExcludedEditors] = useState(() => load("excluded", []));
 
   const cR=useRef(),eR=useRef(),rR=useRef(),manualRef=useRef();
 
@@ -61,8 +62,8 @@ export default function App() {
     if(!mounted.current){mounted.current=true;return;}
     save("clients",clients);save("editors",editors);save("pipeline",pipeline);
     save("breakdown",pipelineBreakdown);save("nvideos",notionVideos);
-    save("assigns",assigns);save("eprops",editorProps);if(lastSync)save("lastSync",lastSync);
-  },[clients,editors,pipeline,pipelineBreakdown,notionVideos,assigns,lastSync,editorProps]);
+    save("assigns",assigns);save("eprops",editorProps);save("excluded",excludedEditors);if(lastSync)save("lastSync",lastSync);
+  },[clients,editors,pipeline,pipelineBreakdown,notionVideos,assigns,lastSync,editorProps,excludedEditors]);
 
   useEffect(()=>{if(addC&&cR.current)cR.current.focus();},[addC]);
   useEffect(()=>{if(addE&&eR.current)eR.current.focus();},[addE]);
