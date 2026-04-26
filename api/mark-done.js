@@ -17,6 +17,10 @@ const UNDO_STATUS = {
   EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
 };
 
+// Assets column name varies by client
+const ASSETS_COL = { Brad: "Assets 2" };
+const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -41,7 +45,7 @@ export default async function handler(req, res) {
       if (isOps) {
         // Ops (Anurag) → update Assets column, NOT Status
         updateProps = {
-          "Assets": { status: { name: isDone ? "Done" : "Not started" } }
+          [getAssetsCol(client)]: { status: { name: isDone ? "Done" : "Not started" } }
         };
       } else {
         // Regular editor → update Status column
