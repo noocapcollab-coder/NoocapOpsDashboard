@@ -1,9 +1,13 @@
-// api/update-editor.js — Assign video: editors get Editor column, Anurag gets Assets column
+// api/update-editor.js — Assign video: sets Editor + Status to "To Edit", Anurag sets Assets
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
-
-// Ops team members — they update Assets, not Editor column
 const OPS_MEMBERS = ["anurag"];
+
+// "To Edit" status name varies by client
+const TO_EDIT_STATUS = {
+  Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
+  EmTech: "TO EDIT", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
+};
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -25,80 +29,52 @@ export default async function handler(req, res) {
 
   // 1. Update client's content planner
   try {
-    let updateProps;
+    let updateProps = {};
 
     if (isOps) {
-      // Anurag (Ops) → set Assets to "In progress", DON'T touch Editor column
+      // Anurag (Ops) → set Assets to "In progress", don't touch Editor or Status
       updateProps = {
         "Assets": { status: { name: "In progress" } }
       };
     } else {
-      // Regular editor → set Editor column
+      // Regular editor → set Editor column + Status to "To Edit"
       if (editorProp) {
-        updateProps = {
-          [editorProp]: { select: { name: editor } }
-        };
+        updateProps[editorProp] = { select: { name: editor } };
       }
+      const toEditVal = TO_EDIT_STATUS[client] || "To Edit";
+      updateProps["Status"] = { status: { name: toEditVal } };
     }
 
-    if (updateProps) {
-      const resp = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
-        method: "PATCH",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Notion-Version": "2022-06-28",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ properties: updateProps }),
-      });
-      results.clientUpdate = resp.ok;
-      if (!resp.ok) results.clientError = await resp.text();
-    }
+    const resp = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: "PATCH",
+      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+      body: JSON.stringify({ properties: updateProps }),
+    });
+    results.clientUpdate = resp.ok;
+    if (!resp.ok) results.clientError = await resp.text();
   } catch (err) {
     results.clientError = err.message;
   }
 
-  // 2. Create row in Editors Data database
+  // 2. Create row in Editors Data
   try {
     const today = new Date().toISOString().split("T")[0];
-
     const resp = await fetch("https://api.notion.com/v1/pages", {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${token}`,
-        "Notion-Version": "2022-06-28",
-        "Content-Type": "application/json",
-      },
+      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
       body: JSON.stringify({
         parent: { database_id: EDITORS_DB_ID },
         properties: {
-          "Video Title": {
-            title: [{ text: { content: videoTitle || "Untitled" } }]
-          },
-          "Editor": {
-            select: { name: editor }
-          },
-          "Assigned Date": {
-            date: { start: today }
-          },
-          "Status": {
-            status: { name: "In progress" }
-          },
-          ...(client ? {
-            "CLIENT": {
-              multi_select: [{ name: client.toUpperCase() }]
-            }
-          } : {}),
+          "Video Title": { title: [{ text: { content: videoTitle || "Untitled" } }] },
+          "Editor": { select: { name: editor } },
+          "Assigned Date": { date: { start: today } },
+          "Status": { status: { name: "In progress" } },
+          ...(client ? { "CLIENT": { multi_select: [{ name: client.toUpperCase() }] } } : {}),
         }
       }),
     });
-
-    if (resp.ok) {
-      results.editorsRow = true;
-    } else {
-      const err = await resp.text();
-      results.editorsError = err;
-    }
+    results.editorsRow = resp.ok;
+    if (!resp.ok) results.editorsError = await resp.text();
   } catch (err) {
     results.editorsError = err.message;
   }
