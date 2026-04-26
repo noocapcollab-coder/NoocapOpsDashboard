@@ -1,4 +1,4 @@
-// api/mark-done.js — Toggle video Done/Undo in Editors Data + Client DB
+// api/mark-done.js — Toggle Done/Undo + Ops (Assets) support
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 
@@ -7,13 +7,11 @@ const STATUS_PROPS = {
   EmTech: "Status", Duncan: "Status", Cinday: "Status", Joshua: "Status",
 };
 
-// What "done" means per client
 const DONE_STATUS = {
   Brad: "READY", Lindsay: "READY", Chris: "READY",
   EmTech: "READY", Duncan: "READY", Cinday: "POSTED", Joshua: "READY",
 };
 
-// What "undo" reverts to per client
 const UNDO_STATUS = {
   Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
   EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
@@ -29,24 +27,37 @@ export default async function handler(req, res) {
   const token = process.env.NOTION_TOKEN;
   if (!token) return res.status(500).json({ success: false, error: "NOTION_TOKEN not set" });
 
-  const { notionPageId, client, videoTitle, editor, action } = req.body;
+  const { notionPageId, client, videoTitle, editor, action, isOps } = req.body;
   if (!client) return res.status(400).json({ success: false, error: "client required" });
 
   const isDone = action !== "undo";
-  const results = { clientUpdate: false, editorsUpdate: false, action: isDone ? "done" : "undo" };
+  const results = { clientUpdate: false, editorsUpdate: false, action: isDone ? "done" : "undo", isOps: !!isOps };
 
-  // 1. Update client's content planner status
+  // 1. Update client's content planner
   if (notionPageId) {
     try {
-      const statusProp = STATUS_PROPS[client] || "Status";
-      const statusValue = isDone
-        ? (DONE_STATUS[client] || "READY")
-        : (UNDO_STATUS[client] || "To Edit");
+      let updateProps;
+
+      if (isOps) {
+        // Ops (Anurag) → update Assets column, NOT Status
+        updateProps = {
+          "Assets": { status: { name: isDone ? "Done" : "Not started" } }
+        };
+      } else {
+        // Regular editor → update Status column
+        const statusProp = STATUS_PROPS[client] || "Status";
+        const statusValue = isDone
+          ? (DONE_STATUS[client] || "READY")
+          : (UNDO_STATUS[client] || "To Edit");
+        updateProps = {
+          [statusProp]: { status: { name: statusValue } }
+        };
+      }
 
       const resp = await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
         method: "PATCH",
         headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-        body: JSON.stringify({ properties: { [statusProp]: { status: { name: statusValue } } } }),
+        body: JSON.stringify({ properties: updateProps }),
       });
       results.clientUpdate = resp.ok;
       if (!resp.ok) results.clientError = await resp.text();
