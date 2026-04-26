@@ -114,13 +114,15 @@ export default function App() {
     if(!a) return;
     const newDone = !a.done;
     setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:newDone}:x));
-    showToast(newDone ? "Marked done ✓" : "Unmarked — back to in progress");
+    const isOps = a.ed.toLowerCase()==="anurag";
+    showToast(newDone ? (isOps?"Assets collected ✓":"Marked done ✓") : "Unmarked — back to in progress");
     try {
       await fetch("/api/mark-done", {
         method:"POST", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed,
-          action: newDone ? "done" : "undo"
+          action: newDone ? "done" : "undo",
+          isOps: isOps,
         }),
       });
     } catch(err){ console.error("Toggle done failed:", err); }
@@ -345,7 +347,7 @@ export default function App() {
                         style={{...inp,width:"100%",fontSize:11,padding:"3px 6px"}}/>
                     ):(
                       <>
-                        <span onClick={()=>{setRenI(eI);setRenV(ed);}} style={{fontSize:12,fontWeight:600,color:"#a1a1aa",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ed}</span>
+                        <span onClick={()=>{setRenI(eI);setRenV(ed);}} style={{fontSize:12,fontWeight:600,color:"#a1a1aa",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ed}{ed.toLowerCase()==="anurag"?" (Ops)":""}</span>
                         <span className="hov-target" onClick={()=>{setEditors(p=>p.filter(x=>x!==ed));setAssigns(p=>p.filter(a=>a.ed!==ed));}} style={{cursor:"pointer",color:Y.textMuted,fontSize:12,opacity:0}}>×</span>
                       </>
                     )}
