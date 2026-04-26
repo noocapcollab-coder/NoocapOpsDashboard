@@ -3,6 +3,12 @@
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 const OPS_MEMBERS = ["anurag"];
 
+// Assets column name varies by client (Brad has "Assets 2" due to existing "Asset" column)
+const ASSETS_COL = {
+  Brad: "Assets 2",
+};
+const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
+
 // "To Edit" status name varies by client
 const TO_EDIT_STATUS = {
   Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
@@ -34,7 +40,7 @@ export default async function handler(req, res) {
     if (isOps) {
       // Anurag (Ops) → set Assets to "In progress", don't touch Editor or Status
       updateProps = {
-        "Assets": { status: { name: "In progress" } }
+        [getAssetsCol(client)]: { status: { name: "In progress" } }
       };
     } else {
       // Regular editor → set Editor column + Status to "To Edit"
