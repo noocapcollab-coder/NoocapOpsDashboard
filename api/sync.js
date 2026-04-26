@@ -105,7 +105,7 @@ function extract(page, propName) {
 }
 
 // Editors who no longer work with us — excluded from dashboard
-const EXCLUDED_EDITORS = ["sanjai", "prateek"];
+const EXCLUDED_EDITORS = ["sanjai", "prateek", "rounak", "ronak"];
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
