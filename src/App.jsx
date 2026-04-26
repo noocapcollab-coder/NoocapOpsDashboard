@@ -128,6 +128,20 @@ export default function App() {
     } catch(err){ console.error("Toggle done failed:", err); }
   };
 
+  // Remove assignment — reverts Notion changes
+  const removeAssignment = async (assignId) => {
+    const a = assigns.find(x=>x.id===assignId);
+    if(!a) return;
+    setAssigns(p=>p.filter(x=>x.id!==assignId));
+    showToast("Removed");
+    try {
+      await fetch("/api/remove-assignment", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed }),
+      });
+    } catch(err){ console.error("Remove failed:", err); }
+  };
+
   // Auto-rollover: at 6AM, move unchecked yesterday's videos to today
   useEffect(()=>{
     const checkRollover = () => {
@@ -394,7 +408,7 @@ export default function App() {
                             <span style={{width:5,height:5,borderRadius:"50%",background:isDone?"#22c55e":co.dot,flexShrink:0}}/>
                             <span style={{fontSize:10,fontWeight:700,color:isDone?"#86efac":co.text,flexShrink:0}}>{a.cl}</span>
                             <span style={{fontSize:9,color:isDone?"#86efac60":co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDone?"line-through":"none"}} title={a.vn}>{a.vn||"—"}</span>
-                            <span onClick={e=>{e.stopPropagation();setAssigns(p=>p.filter(x=>x.id!==a.id));showToast("Removed");}}
+                            <span onClick={e=>{e.stopPropagation();removeAssignment(a.id);}}
                               style={{cursor:"pointer",color:isDone?"#86efac30":co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>
                           </div>
                         );})}
