@@ -3,6 +3,10 @@
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 const OPS_MEMBERS = ["anurag"];
 
+// Assets column name varies by client
+const ASSETS_COL = { Brad: "Assets 2" };
+const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
+
 // Revert status to "To Film" per client
 const TO_FILM_STATUS = {
   Brad: "To Film", Lindsay: "To Film", Chris: "To Film",
@@ -31,7 +35,7 @@ export default async function handler(req, res) {
       if (isOps) {
         // Anurag → revert Assets to "Not started"
         updateProps = {
-          "Assets": { status: { name: "Not started" } }
+          [getAssetsCol(client)]: { status: { name: "Not started" } }
         };
       } else {
         // Regular editor → revert Status to "To Film"
