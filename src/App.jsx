@@ -2,217 +2,148 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 const SHORT = ["MON","TUE","WED","THU","FRI","SAT"];
-
 const PALETTE = {
-  Brad:    { bg:"rgba(59,130,246,0.10)", border:"#3b82f6", text:"#93c5fd", dot:"#3b82f6", glow:"rgba(59,130,246,0.3)", accent:"#2563eb" },
-  Lindsay: { bg:"rgba(168,85,247,0.10)", border:"#a855f7", text:"#d8b4fe", dot:"#a855f7", glow:"rgba(168,85,247,0.3)", accent:"#7c3aed" },
-  Duncan:  { bg:"rgba(34,197,94,0.10)",  border:"#22c55e", text:"#86efac", dot:"#22c55e", glow:"rgba(34,197,94,0.3)",  accent:"#16a34a" },
-  EmTech:  { bg:"rgba(245,158,11,0.10)", border:"#f59e0b", text:"#fcd34d", dot:"#f59e0b", glow:"rgba(245,158,11,0.3)", accent:"#d97706" },
-  Chris:   { bg:"rgba(6,182,212,0.10)",  border:"#06b6d4", text:"#67e8f9", dot:"#06b6d4", glow:"rgba(6,182,212,0.3)",  accent:"#0891b2" },
-  Cinday:  { bg:"rgba(244,63,94,0.10)",  border:"#f43f5e", text:"#fda4af", dot:"#f43f5e", glow:"rgba(244,63,94,0.3)",  accent:"#e11d48" },
-  Joshua:  { bg:"rgba(132,204,22,0.10)", border:"#84cc16", text:"#bef264", dot:"#84cc16", glow:"rgba(132,204,22,0.3)", accent:"#65a30d" },
+  Brad:    { bg:"rgba(59,130,246,0.10)", border:"#3b82f6", text:"#93c5fd", dot:"#3b82f6", glow:"rgba(59,130,246,0.3)" },
+  Lindsay: { bg:"rgba(168,85,247,0.10)", border:"#a855f7", text:"#d8b4fe", dot:"#a855f7", glow:"rgba(168,85,247,0.3)" },
+  Duncan:  { bg:"rgba(34,197,94,0.10)",  border:"#22c55e", text:"#86efac", dot:"#22c55e", glow:"rgba(34,197,94,0.3)" },
+  EmTech:  { bg:"rgba(245,158,11,0.10)", border:"#f59e0b", text:"#fcd34d", dot:"#f59e0b", glow:"rgba(245,158,11,0.3)" },
+  Chris:   { bg:"rgba(6,182,212,0.10)",  border:"#06b6d4", text:"#67e8f9", dot:"#06b6d4", glow:"rgba(6,182,212,0.3)" },
+  Cinday:  { bg:"rgba(244,63,94,0.10)",  border:"#f43f5e", text:"#fda4af", dot:"#f43f5e", glow:"rgba(244,63,94,0.3)" },
+  Joshua:  { bg:"rgba(132,204,22,0.10)", border:"#84cc16", text:"#bef264", dot:"#84cc16", glow:"rgba(132,204,22,0.3)" },
+  Valerie: { bg:"rgba(20,184,166,0.10)", border:"#14b8a6", text:"#5eead4", dot:"#14b8a6", glow:"rgba(20,184,166,0.3)" },
 };
-const XTRA = [{ bg:"rgba(132,204,22,0.10)", border:"#84cc16", text:"#bef264", dot:"#84cc16", glow:"rgba(132,204,22,0.3)", accent:"#65a30d" }];
-
+const XTRA = [{ bg:"rgba(251,146,60,0.10)", border:"#fb923c", text:"#fdba74", dot:"#fb923c", glow:"rgba(251,146,60,0.3)" }];
 const Y = { bg:"#050505", card:"rgba(245,158,11,0.03)", cardBorder:"rgba(245,158,11,0.08)", accent:"#f59e0b", accentDim:"#b45309", accentGlow:"rgba(245,158,11,0.25)", accentBright:"#fbbf24", text:"#fef3c7", textDim:"#92400e", textMuted:"#78350f", surface:"rgba(245,158,11,0.04)", surfaceBorder:"rgba(245,158,11,0.10)", todayBg:"rgba(245,158,11,0.06)", todayBorder:"rgba(245,158,11,0.18)" };
 
-const ASSIGNABLE = ["to edit", "to film"];
+// Match these statuses in video picker (normalized)
+const ASSIGNABLE = ["to edit","to film","6- in edit","5- to film"];
 
-const getMonday = (d) => { const dt=new Date(d);const dy=dt.getDay();dt.setDate(dt.getDate()-dy+(dy===0?-6:1));dt.setHours(0,0,0,0);return dt; };
-const fmt = (d) => d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
-const fmtFull = (d) => d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
-const fmtW = (m) => { const s=new Date(m);s.setDate(s.getDate()+5);return fmt(m)+" — "+fmt(s)+", "+s.getFullYear(); };
-const uid = () => Math.random().toString(36).slice(2,9);
+const getMonday=(d)=>{const dt=new Date(d);const dy=dt.getDay();dt.setDate(dt.getDate()-dy+(dy===0?-6:1));dt.setHours(0,0,0,0);return dt};
+const fmt=(d)=>d.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+const fmtFull=(d)=>d.toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"});
+const fmtW=(m)=>{const s=new Date(m);s.setDate(s.getDate()+5);return fmt(m)+" — "+fmt(s)+", "+s.getFullYear()};
+const uid=()=>Math.random().toString(36).slice(2,9);
+const SK="noocap_v4_";
+const load=(k,fb)=>{try{const v=localStorage.getItem(SK+k);return v?JSON.parse(v):fb}catch{return fb}};
+const save=(k,v)=>{try{localStorage.setItem(SK+k,JSON.stringify(v))}catch{}};
 
-const SK = "noocap_v3_";
-const load = (k, fb) => { try { const v=localStorage.getItem(SK+k); return v?JSON.parse(v):fb; } catch{return fb;} };
-const save = (k, v) => { try { localStorage.setItem(SK+k, JSON.stringify(v)); } catch{} };
-
-export default function App() {
-  const [clients, setClients] = useState(() => load("clients", ["Brad","Lindsay","Chris","Duncan","EmTech","Cinday","Joshua"]));
-  const [editors, setEditors] = useState(() => load("editors", ["Parvez","Ananya","Sumith","Anurag"]));
-  const [pipeline, setPipeline] = useState(() => load("pipeline", {}));
-  const [pipelineBreakdown, setPipelineBreakdown] = useState(() => load("breakdown", {}));
-  const [notionVideos, setNotionVideos] = useState(() => load("nvideos", {}));
-  const [editorProps, setEditorProps] = useState(() => load("eprops", {}));
-  const [ws, setWs] = useState(() => getMonday(new Date()));
-  const [assigns, setAssigns] = useState(() => load("assigns", []));
-  const mounted = useRef(false);
-
-  const [pickingClient, setPickingClient] = useState(null);
-  const [pickingVideo, setPickingVideo] = useState(null);
-  const [manualMode, setManualMode] = useState(null);
-  const [manualName, setManualName] = useState("");
-  const [dragA, setDragA] = useState(null);
-  const [addC, setAddC] = useState(false);
-  const [addE, setAddE] = useState(false);
-  const [nc, setNc] = useState("");
-  const [ne, setNe] = useState("");
-  const [renI, setRenI] = useState(null);
-  const [renV, setRenV] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [syncing, setSyncing] = useState(false);
-  const [lastSync, setLastSync] = useState(() => load("lastSync", null));
-  const [excludedEditors, setExcludedEditors] = useState(() => load("excluded", []));
-
+export default function App(){
+  const [clients,setClients]=useState(()=>load("clients",["Brad","Lindsay","Chris","Duncan","EmTech","Cinday","Joshua","Valerie"]));
+  const [editors,setEditors]=useState(()=>load("editors",["Parvez","Ananya","Sumith","Anurag"]));
+  const [pipeline,setPipeline]=useState(()=>load("pipeline",{}));
+  const [pipelineBreakdown,setPipelineBreakdown]=useState(()=>load("breakdown",{}));
+  const [notionVideos,setNotionVideos]=useState(()=>load("nvideos",{}));
+  const [editorProps,setEditorProps]=useState(()=>load("eprops",{}));
+  const [ws,setWs]=useState(()=>getMonday(new Date()));
+  const [assigns,setAssigns]=useState(()=>load("assigns",[]));
+  const mounted=useRef(false);
+  const [pickingClient,setPickingClient]=useState(null);
+  const [pickingVideo,setPickingVideo]=useState(null);
+  const [manualMode,setManualMode]=useState(null);
+  const [manualName,setManualName]=useState("");
+  const [dragA,setDragA]=useState(null);
+  const [addC,setAddC]=useState(false);const [addE,setAddE]=useState(false);
+  const [nc,setNc]=useState("");const [ne,setNe]=useState("");
+  const [renI,setRenI]=useState(null);const [renV,setRenV]=useState("");
+  const [copied,setCopied]=useState(false);
+  const [toast,setToast]=useState(null);
+  const [syncing,setSyncing]=useState(false);
+  const [lastSync,setLastSync]=useState(()=>load("lastSync",null));
   const cR=useRef(),eR=useRef(),rR=useRef(),manualRef=useRef();
 
-  useEffect(()=>{
-    if(!mounted.current){mounted.current=true;return;}
-    save("clients",clients);save("editors",editors);save("pipeline",pipeline);
-    save("breakdown",pipelineBreakdown);save("nvideos",notionVideos);
-    save("assigns",assigns);save("eprops",editorProps);save("excluded",excludedEditors);if(lastSync)save("lastSync",lastSync);
-  },[clients,editors,pipeline,pipelineBreakdown,notionVideos,assigns,lastSync,editorProps,excludedEditors]);
+  useEffect(()=>{if(!mounted.current){mounted.current=true;return;}save("clients",clients);save("editors",editors);save("pipeline",pipeline);save("breakdown",pipelineBreakdown);save("nvideos",notionVideos);save("assigns",assigns);save("eprops",editorProps);if(lastSync)save("lastSync",lastSync)},[clients,editors,pipeline,pipelineBreakdown,notionVideos,assigns,lastSync,editorProps]);
+  useEffect(()=>{if(addC&&cR.current)cR.current.focus()},[addC]);
+  useEffect(()=>{if(addE&&eR.current)eR.current.focus()},[addE]);
+  useEffect(()=>{if(renI!==null&&rR.current)rR.current.focus()},[renI]);
+  useEffect(()=>{if(manualMode&&manualRef.current)manualRef.current.focus()},[manualMode]);
 
-  useEffect(()=>{if(addC&&cR.current)cR.current.focus();},[addC]);
-  useEffect(()=>{if(addE&&eR.current)eR.current.focus();},[addE]);
-  useEffect(()=>{if(renI!==null&&rR.current)rR.current.focus();},[renI]);
-  useEffect(()=>{if(manualMode){setTimeout(()=>{if(manualRef.current)manualRef.current.focus();},50);}},[manualMode]);
+  const showToast=useCallback((msg,isErr)=>{setToast({msg,isErr});setTimeout(()=>setToast(null),3000)},[]);
 
-  const showToast = useCallback((msg,isErr)=>{setToast({msg,isErr});setTimeout(()=>setToast(null),3000);},[]);
+  const wk=ws.toISOString().slice(0,10);
+  const now=new Date();now.setHours(0,0,0,0);
+  const cm=getMonday(now);const isCW=ws.getTime()===cm.getTime();
+  const tI=now.getDay()===0?-1:now.getDay()-1;const todayName=DAYS[tI]||null;
+  const col=(n)=>PALETTE[n]||XTRA[Math.abs(clients.filter(c=>!PALETTE[c]).indexOf(n))%XTRA.length];
+  const cellAs=(d,e)=>assigns.filter(a=>a.wk===wk&&a.day===d&&a.ed===e);
+  const wkA2=(c)=>assigns.filter(a=>a.cl===c&&a.wk===wk).length;
+  const editorLoad=(e)=>assigns.filter(a=>a.wk===wk&&a.ed===e).length;
 
-  const wk = ws.toISOString().slice(0,10);
-  const now = new Date();now.setHours(0,0,0,0);
-  const cm = getMonday(now);
-  const isCW = ws.getTime()===cm.getTime();
-  const tI = now.getDay()===0?-1:now.getDay()-1;
-  const todayName = DAYS[tI]||null;
-
-  const col = (n) => PALETTE[n]||XTRA[Math.abs(clients.filter(c=>!PALETTE[c]).indexOf(n))%XTRA.length];
-  const cellAs = (d,e) => assigns.filter(a=>a.wk===wk&&a.day===d&&a.ed===e);
-  const wkA2 = (c) => assigns.filter(a=>a.cl===c&&a.wk===wk).length;
-  const editorLoad = (e) => assigns.filter(a=>a.wk===wk&&a.ed===e).length;
-
-  const getAssignable = (cl) => {
-    const vids = notionVideos[cl] || [];
-    const assignedIds = assigns.map(a=>a.notionId).filter(Boolean);
-    return vids.filter(v => { const s=(v.status||"").toLowerCase().trim(); return ASSIGNABLE.includes(s)&&!assignedIds.includes(v.id); });
+  const getAssignable=(cl)=>{
+    const vids=notionVideos[cl]||[];const assignedIds=assigns.map(a=>a.notionId).filter(Boolean);
+    return vids.filter(v=>{const s=(v.status||"").toLowerCase().trim();return ASSIGNABLE.includes(s)&&!assignedIds.includes(v.id)});
   };
 
-  const closeAll = () => { setPickingClient(null);setPickingVideo(null);setManualMode(null); };
+  const closeAll=()=>{setPickingClient(null);setPickingVideo(null);setManualMode(null)};
 
-  const assignVideo = async (day, ed, cl, video) => {
-    setAssigns(p => [...p, { id:uid(), wk, day, ed, cl, vn:video.title, notionId:video.id, done:false }]);
-    closeAll(); showToast(`Assigned: ${video.title}`);
-    const eProp = editorProps[cl];
-    if (video.id) {
-      try { await fetch("/api/update-editor", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({pageId:video.id,editor:ed,editorProp:eProp,videoTitle:video.title,client:cl}) }); showToast("Updated in Notion"); } catch(err){ console.error(err); }
-    }
+  const assignVideo=async(day,ed,cl,video)=>{
+    setAssigns(p=>[...p,{id:uid(),wk,day,ed,cl,vn:video.title,notionId:video.id,done:false}]);
+    closeAll();showToast(`Assigned: ${video.title}`);
+    const eProp=editorProps[cl];
+    if(video.id){try{const r=await fetch("/api/update-editor",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pageId:video.id,editor:ed,editorProp:eProp,videoTitle:video.title,client:cl})});const j=await r.json();if(j.success)showToast("Updated in Notion")}catch(err){console.error(err)}}
   };
 
-  const assignManual = () => {
-    if(!manualMode||!manualName.trim()) return;
-    const {day,ed,cl}=manualMode;
+  const assignManual=()=>{
+    if(!manualMode||!manualName.trim())return;const{day,ed,cl}=manualMode;
     setAssigns(p=>[...p,{id:uid(),wk,day,ed,cl,vn:manualName.trim(),done:false}]);
     closeAll();setManualName("");showToast("Assigned");
   };
 
-  // Toggle done/undone — updates Notion both ways
-  const toggleDone = async (assignId) => {
-    const a = assigns.find(x=>x.id===assignId);
-    if(!a) return;
-    const newDone = !a.done;
-    setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:newDone}:x));
-    const isOps = a.ed.toLowerCase()==="anurag";
-    showToast(newDone ? (isOps?"Assets collected ✓":"Marked done ✓") : "Unmarked — back to in progress");
-    try {
-      await fetch("/api/mark-done", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed,
-          action: newDone ? "done" : "undo",
-          isOps: isOps,
-        }),
-      });
-    } catch(err){ console.error("Toggle done failed:", err); }
+  const toggleDone=async(assignId)=>{
+    const a=assigns.find(x=>x.id===assignId);if(!a)return;
+    const newDone=!a.done;setAssigns(p=>p.map(x=>x.id===assignId?{...x,done:newDone}:x));
+    const isOps=a.ed.toLowerCase()==="anurag";
+    showToast(newDone?(isOps?"Assets collected ✓":"Marked done ✓"):"Unmarked — back to in progress");
+    try{await fetch("/api/mark-done",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionPageId:a.notionId||null,client:a.cl,videoTitle:a.vn,editor:a.ed,action:newDone?"done":"undo",isOps})})}catch(err){console.error(err)}
   };
 
-  // Remove assignment — reverts Notion changes
-  const removeAssignment = async (assignId) => {
-    const a = assigns.find(x=>x.id===assignId);
-    if(!a) return;
-    setAssigns(p=>p.filter(x=>x.id!==assignId));
-    showToast("Removed");
-    try {
-      await fetch("/api/remove-assignment", {
-        method:"POST", headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ notionPageId:a.notionId||null, client:a.cl, videoTitle:a.vn, editor:a.ed }),
-      });
-    } catch(err){ console.error("Remove failed:", err); }
+  const removeAssignment=async(assignId)=>{
+    const a=assigns.find(x=>x.id===assignId);if(!a)return;
+    setAssigns(p=>p.filter(x=>x.id!==assignId));showToast("Removed");
+    try{await fetch("/api/remove-assignment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({notionPageId:a.notionId||null,client:a.cl,videoTitle:a.vn,editor:a.ed})})}catch(err){console.error(err)}
   };
 
-  // Auto-rollover: at 6AM, move unchecked yesterday's videos to today
+  // Auto-rollover at 6AM
   useEffect(()=>{
-    const checkRollover = () => {
-      const now2 = new Date();
-      if(now2.getHours() < 6) return; // only after 6AM
-      const todayIdx = now2.getDay()===0?-1:now2.getDay()-1;
-      const yesterdayIdx = todayIdx-1;
-      if(yesterdayIdx < 0) return; // don't rollover from before Monday
-      const yesterday = DAYS[yesterdayIdx];
-      const today2 = DAYS[todayIdx];
-      if(!yesterday||!today2) return;
-      const currentWk = getMonday(now2).toISOString().slice(0,10);
-      setAssigns(prev => {
-        let changed = false;
-        const updated = prev.map(a=>{
-          if(a.wk===currentWk && a.day===yesterday && !a.done){
-            changed = true;
-            return {...a, day:today2};
-          }
-          return a;
-        });
-        return changed ? updated : prev;
-      });
-    };
-    checkRollover();
-    const interval = setInterval(checkRollover, 60*60*1000); // check every hour
-    return ()=>clearInterval(interval);
+    const check=()=>{const n2=new Date();if(n2.getHours()<6)return;const ti=n2.getDay()===0?-1:n2.getDay()-1;const yi=ti-1;if(yi<0)return;const y=DAYS[yi];const t=DAYS[ti];if(!y||!t)return;const cw=getMonday(n2).toISOString().slice(0,10);setAssigns(p=>{let ch=false;const u=p.map(a=>{if(a.wk===cw&&a.day===y&&!a.done){ch=true;return{...a,day:t}}return a});return ch?u:p})};
+    check();const iv=setInterval(check,3600000);return()=>clearInterval(iv);
   },[]);
 
-  const handleDropCell = (day,ed) => { if(dragA){setAssigns(p=>p.map(a=>a.id===dragA.id?{...a,day,ed,wk}:a));setDragA(null);showToast("Rescheduled");} };
+  const handleDropCell=(day,ed)=>{if(dragA){setAssigns(p=>p.map(a=>a.id===dragA.id?{...a,day,ed,wk}:a));setDragA(null);showToast("Rescheduled")}};
 
-  const syncFromNotion = async () => {
+  const syncFromNotion=async()=>{
     setSyncing(true);
-    try {
-      const resp = await fetch("/api/sync"); const json = await resp.json();
-      if(!json.success) throw new Error(json.error);
-      const newPL={};const newBD={};const newVids={};const newEP={};
-      const editorMap=new Map(); editors.forEach(e=>editorMap.set(e.toLowerCase(),e));
-      for(const [cl,data] of Object.entries(json.data)){
-        newPL[cl]=data.pipelineCount||0;
-        newBD[cl]={toEdit:data.toEditCount||0,toFilm:data.toFilmCount||0,...(data.statusCounts||{})};
+    try{
+      const resp=await fetch("/api/sync");const json=await resp.json();
+      if(!json.success)throw new Error(json.error);
+      const newPL={},newBD={},newVids={},newEP={};
+      const editorMap=new Map();editors.forEach(e=>editorMap.set(e.toLowerCase(),e));
+      for(const[cl,data]of Object.entries(json.data)){
+        newPL[cl]=data.pipelineCount||0;newBD[cl]={toEdit:data.toEditCount||0,toFilm:data.toFilmCount||0};
         newVids[cl]=data.videos||[];
-        if(data.editorProp) newEP[cl]=data.editorProp;
-        (data.editors||[]).forEach(e=>{const k=e.toLowerCase();if(!editorMap.has(k))editorMap.set(k,e.charAt(0).toUpperCase()+e.slice(1).toLowerCase());});
+        if(data.editorProp)newEP[cl]=data.editorProp;
+        (data.editors||[]).forEach(e=>{const k=e.toLowerCase();if(!editorMap.has(k))editorMap.set(k,e.charAt(0).toUpperCase()+e.slice(1).toLowerCase())});
         if(!clients.includes(cl))setClients(p=>[...p,cl]);
       }
-      // Always include these editors (pinned team members)
-      const PINNED = ["Parvez","Ananya","Sumith","Anurag"];
-      PINNED.forEach(e => { if(!editorMap.has(e.toLowerCase())) editorMap.set(e.toLowerCase(), e); });
-
+      const PINNED=["Parvez","Ananya","Sumith","Anurag"];
+      PINNED.forEach(e=>{if(!editorMap.has(e.toLowerCase()))editorMap.set(e.toLowerCase(),e)});
       setPipeline(newPL);setPipelineBreakdown(newBD);setNotionVideos(newVids);
       setEditors([...editorMap.values()]);setEditorProps(newEP);
       setLastSync(new Date().toLocaleTimeString());showToast("Synced from Notion");
-    } catch(err){showToast("Sync failed: "+err.message,true);}
-    finally{setSyncing(false);}
+    }catch(err){showToast("Sync failed: "+err.message,true)}finally{setSyncing(false)}
   };
 
-  const wkAs = assigns.filter(a=>a.wk===wk);
-  const filled = wkAs.length;
-  const tPL = Object.values(pipeline).reduce((s,v)=>s+v,0);
-  const tRem = clients.reduce((s,c)=>Math.max(0,(pipeline[c]||0)-assigns.filter(a=>a.cl===c).length)+s,0);
-  const todayAssigns = todayName ? wkAs.filter(a=>a.day===todayName) : [];
+  const wkAs=assigns.filter(a=>a.wk===wk);const filled=wkAs.length;
+  const todayAssigns=todayName?wkAs.filter(a=>a.day===todayName):[];
+  const tPL=Object.values(pipeline).reduce((s,v)=>s+v,0);
 
-  const copySlack = () => {
+  const copySlack=()=>{
     let text=`📋 *NOOCAP Video Schedule — ${fmtW(ws)}*\n\n`;
-    editors.forEach(ed=>{const edAs=wkAs.filter(a=>a.ed===ed);if(!edAs.length)return;text+=`*${ed}*\n`;DAYS.forEach(day=>{edAs.filter(x=>x.day===day).forEach(a=>{text+=`  ${SHORT[DAYS.indexOf(day)]}: ${a.cl} — ${a.vn||"untitled"}\n`;});});text+="\n";});
+    editors.forEach(ed=>{const edAs=wkAs.filter(a=>a.ed===ed);if(!edAs.length)return;text+=`*${ed}*\n`;DAYS.forEach(day=>{edAs.filter(x=>x.day===day).forEach(a=>{text+=`  ${SHORT[DAYS.indexOf(day)]}: ${a.cl} — ${a.vn||"untitled"}${a.done?" ✅":""}\n`})});text+="\n"});
     if(!filled)text+="_No videos scheduled_\n";
-    navigator.clipboard.writeText(text).then(()=>{setCopied(true);showToast("Copied!");setTimeout(()=>setCopied(false),2000);});
+    navigator.clipboard.writeText(text).then(()=>{setCopied(true);showToast("Copied!");setTimeout(()=>setCopied(false),2000)});
   };
 
-  return (
+  return(
     <div style={{background:Y.bg,color:"#d4d4d8",minHeight:"100vh",fontFamily:"'Outfit',system-ui,sans-serif",position:"relative",overflow:"hidden"}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -227,23 +158,17 @@ export default function App() {
         .fu{animation:fadeUp .2s ease-out}
         .cell{transition:all .12s}.cell:hover{background:rgba(245,158,11,0.025) !important;border-color:rgba(245,158,11,0.1) !important}
         .chip{transition:all .12s;cursor:grab;user-select:none}.chip:hover{background:rgba(255,255,255,0.03) !important}
-        .chip:active{cursor:grabbing;opacity:0.7}
-        .chip-done{opacity:0.5;cursor:default !important}
         .hov-show:hover .hov-target{opacity:1 !important}
         .drag-over{box-shadow:inset 0 0 0 2px ${Y.accent}50 !important}
         .add-more{opacity:0;transition:opacity .12s}.cell:hover .add-more{opacity:1}
         .sync-spin{animation:spin 1s linear infinite}
         .vid-pick{cursor:pointer;transition:all .1s;border:1px solid transparent;border-radius:5px}
         .vid-pick:hover{border-color:${Y.accent}25;background:rgba(245,158,11,0.03) !important}
-        .stag{font-size:7px;padding:1px 4px;border-radius:3px;font-weight:700;font-family:'JetBrains Mono',monospace}
       `}</style>
-
       <div style={{position:"absolute",top:-300,left:"20%",width:800,height:800,borderRadius:"50%",background:"radial-gradient(circle,rgba(245,158,11,0.04) 0%,transparent 60%)",pointerEvents:"none"}}/>
+      {toast&&<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:999,background:toast.isErr?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)",border:"1px solid "+(toast.isErr?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"),backdropFilter:"blur(12px)",borderRadius:8,padding:"8px 20px",color:toast.isErr?"#fca5a5":"#fcd34d",fontSize:12,fontWeight:600,animation:"toastIn .2s ease-out",display:"flex",alignItems:"center",gap:6}}><span>{toast.isErr?"✗":"✓"}</span>{toast.msg}</div>}
 
-      {toast&&(<div style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",zIndex:999,background:toast.isErr?"rgba(239,68,68,0.12)":"rgba(245,158,11,0.12)",border:"1px solid "+(toast.isErr?"rgba(239,68,68,0.3)":"rgba(245,158,11,0.3)"),backdropFilter:"blur(12px)",borderRadius:8,padding:"8px 20px",color:toast.isErr?"#fca5a5":"#fcd34d",fontSize:12,fontWeight:600,animation:"toastIn .2s ease-out",display:"flex",alignItems:"center",gap:6}}><span>{toast.isErr?"✗":"✓"}</span>{toast.msg}</div>)}
-
-      <div style={{position:"relative",zIndex:1,padding:"20px 24px",maxWidth:1480,margin:"0 auto"}}>
-
+      <div style={{position:"relative",zIndex:1,padding:"20px 24px",maxWidth:1500,margin:"0 auto"}}>
         {/* HEADER */}
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12,marginBottom:20}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -254,269 +179,163 @@ export default function App() {
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-            <button onClick={syncFromNotion} disabled={syncing} style={{background:"linear-gradient(135deg,rgba(245,158,11,0.1),rgba(234,179,8,0.06))",border:"1px solid "+Y.surfaceBorder,color:Y.accentBright,padding:"6px 14px",borderRadius:8,fontSize:10,cursor:syncing?"wait":"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:700,display:"flex",alignItems:"center",gap:5}}>
-              <span className={syncing?"sync-spin":""} style={{fontSize:12}}>⟳</span>{syncing?"Syncing...":"Sync Notion"}
-            </button>
+            <button onClick={syncFromNotion} disabled={syncing} style={{background:"linear-gradient(135deg,rgba(245,158,11,0.1),rgba(234,179,8,0.06))",border:"1px solid "+Y.surfaceBorder,color:Y.accentBright,padding:"6px 14px",borderRadius:8,fontSize:10,cursor:syncing?"wait":"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:700,display:"flex",alignItems:"center",gap:5}}><span className={syncing?"sync-spin":""} style={{fontSize:12}}>⟳</span>{syncing?"Syncing...":"Sync Notion"}</button>
             {lastSync&&<span style={{fontSize:8,color:Y.textDim,fontFamily:"'JetBrains Mono',monospace"}}>{lastSync}</span>}
-            <div style={{display:"flex",gap:2}}><YBtn onClick={()=>{const d=new Date(ws);d.setDate(d.getDate()-7);setWs(d);}}>◀</YBtn><YBtn onClick={()=>setWs(getMonday(new Date()))} active={isCW}>TODAY</YBtn><YBtn onClick={()=>{const d=new Date(ws);d.setDate(d.getDate()+7);setWs(d);}}>▶</YBtn></div>
+            <div style={{display:"flex",gap:2}}><YBtn onClick={()=>{const d=new Date(ws);d.setDate(d.getDate()-7);setWs(d)}}>◀</YBtn><YBtn onClick={()=>setWs(getMonday(new Date()))} active={isCW}>TODAY</YBtn><YBtn onClick={()=>{const d=new Date(ws);d.setDate(d.getDate()+7);setWs(d)}}>▶</YBtn></div>
             <div style={{padding:"6px 12px",background:Y.surface,border:"1px solid "+Y.surfaceBorder,borderRadius:8}}><span style={{fontSize:12,fontWeight:600,color:Y.text,fontFamily:"'JetBrains Mono',monospace"}}>{fmtW(ws)}</span></div>
             <YBtn onClick={copySlack}>{copied?"✓":"📋"} Slack</YBtn>
           </div>
         </div>
 
         {/* TODAY */}
-        {isCW&&todayName&&(
-          <div style={{background:"linear-gradient(135deg,"+Y.todayBg+",rgba(234,179,8,0.02))",border:"1px solid "+Y.todayBorder,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
-            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:todayAssigns.length?10:0}}>
-              <div style={{width:6,height:6,borderRadius:"50%",background:Y.accent,boxShadow:"0 0 10px "+Y.accentGlow,animation:"pulse 2s infinite"}}/>
-              <span style={{fontSize:12,fontWeight:700,color:Y.accentBright}}>TODAY</span>
-              <span style={{fontSize:11,color:Y.textDim}}>{fmtFull(now)}</span>
-              {!todayAssigns.length&&<span style={{fontSize:11,color:Y.textMuted,fontStyle:"italic",marginLeft:6}}>No videos</span>}
-            </div>
-            {todayAssigns.length>0&&(<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-              {todayAssigns.map(a=>{const co=col(a.cl);const isDone=a.done;return(
-                <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,background:isDone?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(isDone?"rgba(34,197,94,0.25)":co.border+"35"),borderRadius:8,padding:"6px 12px",opacity:isDone?0.6:1}}>
-                  {isDone?<span style={{color:"#22c55e",fontSize:12,fontWeight:700}}>✓</span>:<span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>}
-                  <span style={{fontSize:11,fontWeight:700,color:isDone?"#86efac":co.text,textDecoration:isDone?"line-through":"none"}}>{a.cl}</span>
-                  <span style={{fontSize:10,color:isDone?"#86efac60":co.text+"80",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.vn}</span>
-                  <span style={{fontSize:9,color:"#52525b"}}>{a.ed}</span>
-                </div>
-              );})}
-            </div>)}
+        {isCW&&todayName&&<div style={{background:"linear-gradient(135deg,"+Y.todayBg+",rgba(234,179,8,0.02))",border:"1px solid "+Y.todayBorder,borderRadius:12,padding:"12px 16px",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:todayAssigns.length?10:0}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:Y.accent,boxShadow:"0 0 10px "+Y.accentGlow,animation:"pulse 2s infinite"}}/>
+            <span style={{fontSize:12,fontWeight:700,color:Y.accentBright}}>TODAY</span>
+            <span style={{fontSize:11,color:Y.textDim}}>{fmtFull(now)}</span>
+            {!todayAssigns.length&&<span style={{fontSize:11,color:Y.textMuted,fontStyle:"italic",marginLeft:6}}>No videos</span>}
           </div>
-        )}
+          {todayAssigns.length>0&&<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {todayAssigns.map(a=>{const co=col(a.cl);const dn=a.done;return <div key={a.id} style={{display:"flex",alignItems:"center",gap:8,background:dn?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(dn?"rgba(34,197,94,0.25)":co.border+"35"),borderRadius:8,padding:"6px 12px",opacity:dn?0.6:1}}>
+              {dn?<span style={{color:"#22c55e",fontSize:12,fontWeight:700}}>✓</span>:<span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>}
+              <span style={{fontSize:11,fontWeight:700,color:dn?"#86efac":co.text,textDecoration:dn?"line-through":"none"}}>{a.cl}</span>
+              <span style={{fontSize:10,color:dn?"#86efac60":co.text+"80",maxWidth:160,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{a.vn}</span>
+              <span style={{fontSize:9,color:"#52525b"}}>{a.ed}</span>
+            </div>})}
+          </div>}
+        </div>}
 
         {/* PIPELINE */}
         <div style={{background:Y.surface,border:"1px solid "+Y.surfaceBorder,borderRadius:12,padding:16,marginBottom:16}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,flexWrap:"wrap",gap:6}}>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <span style={{fontSize:10,fontWeight:700,color:Y.accent,letterSpacing:2,fontFamily:"'JetBrains Mono',monospace"}}>⬡ PIPELINE</span>
-              {lastSync&&<span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:Y.card,color:Y.accent,border:"1px solid "+Y.surfaceBorder,fontWeight:700,letterSpacing:0.5,textTransform:"uppercase"}}>synced</span>}
+              {lastSync&&<span style={{fontSize:7,padding:"1px 5px",borderRadius:3,background:Y.card,color:Y.accent,border:"1px solid "+Y.surfaceBorder,fontWeight:700,textTransform:"uppercase"}}>synced</span>}
             </div>
-            <div style={{display:"flex",gap:12,fontSize:10,fontFamily:"'JetBrains Mono',monospace"}}>
-              <span style={{color:Y.textDim}}>Total <span style={{color:Y.text,fontWeight:700}}>{tPL}</span></span>
-              <span style={{color:Y.textDim}}>Left <span style={{color:tRem>0?"#fbbf24":"#4ade80",fontWeight:700}}>{tRem}</span></span>
-            </div>
+            <span style={{fontSize:10,color:Y.textDim,fontFamily:"'JetBrains Mono',monospace"}}>Total <span style={{color:Y.text,fontWeight:700}}>{tPL}</span></span>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:8}}>
-            {clients.map(c=>{
-              const co=col(c);const bd=pipelineBreakdown[c]||{};const toEdit=bd.toEdit||0;const toFilm=bd.toFilm||0;const assignable=getAssignable(c).length;
-              return(
-                <div key={c} style={{background:"rgba(0,0,0,0.35)",border:"1px solid "+co.border+"15",borderRadius:10,padding:"10px 12px",transition:"border-color .15s"}}
-                  onMouseEnter={e=>e.currentTarget.style.borderColor=co.border+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor=co.border+"15"}>
-                  <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
-                    <span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>
-                    <span style={{fontSize:12,fontWeight:700,color:co.text}}>{c}</span>
-                    {assignable>0&&<span style={{marginLeft:"auto",fontSize:8,background:co.border+"20",color:co.text,padding:"0 5px",borderRadius:6,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{assignable}</span>}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(130px,1fr))",gap:8}}>
+            {clients.map(c=>{const co=col(c);const bd=pipelineBreakdown[c]||{};const toEdit=bd.toEdit||0;const toFilm=bd.toFilm||0;const assignable=getAssignable(c).length;
+              return <div key={c} style={{background:"rgba(0,0,0,0.35)",border:"1px solid "+co.border+"15",borderRadius:10,padding:"10px 12px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}>
+                  <span style={{width:6,height:6,borderRadius:"50%",background:co.dot}}/>
+                  <span style={{fontSize:12,fontWeight:700,color:co.text}}>{c}</span>
+                  {assignable>0&&<span style={{marginLeft:"auto",fontSize:8,background:co.border+"20",color:co.text,padding:"0 5px",borderRadius:6,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{assignable}</span>}
+                </div>
+                <div style={{display:"flex",gap:6}}>
+                  <div style={{flex:1,background:"rgba(244,63,94,0.06)",borderRadius:6,padding:"4px 0",textAlign:"center"}}>
+                    <div style={{fontSize:15,fontWeight:800,color:"#fda4af",fontFamily:"'JetBrains Mono',monospace"}}>{toEdit}</div>
+                    <div style={{fontSize:7,color:"#f43f5e60",fontWeight:700}}>EDIT</div>
                   </div>
-                  <div style={{display:"flex",gap:6}}>
-                    <div style={{flex:1,background:"rgba(244,63,94,0.06)",borderRadius:6,padding:"4px 0",textAlign:"center"}}>
-                      <div style={{fontSize:16,fontWeight:800,color:"#fda4af",fontFamily:"'JetBrains Mono',monospace"}}>{toEdit}</div>
-                      <div style={{fontSize:7,color:"#f43f5e60",fontWeight:700,letterSpacing:0.5}}>EDIT</div>
-                    </div>
-                    <div style={{flex:1,background:"rgba(251,191,36,0.06)",borderRadius:6,padding:"4px 0",textAlign:"center"}}>
-                      <div style={{fontSize:16,fontWeight:800,color:"#fcd34d",fontFamily:"'JetBrains Mono',monospace"}}>{toFilm}</div>
-                      <div style={{fontSize:7,color:"#f59e0b60",fontWeight:700,letterSpacing:0.5}}>FILM</div>
-                    </div>
+                  <div style={{flex:1,background:"rgba(251,191,36,0.06)",borderRadius:6,padding:"4px 0",textAlign:"center"}}>
+                    <div style={{fontSize:15,fontWeight:800,color:"#fcd34d",fontFamily:"'JetBrains Mono',monospace"}}>{toFilm}</div>
+                    <div style={{fontSize:7,color:"#f59e0b60",fontWeight:700}}>FILM</div>
                   </div>
                 </div>
-              );
-            })}
+              </div>})}
           </div>
         </div>
 
         {/* STATS */}
         <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
-          <YStat label="SCHEDULED" value={filled}/><YStat label="EDITORS" value={editors.length}/>
-          {clients.map(c=><YStat key={c} label={c.toUpperCase().slice(0,6)} value={wkA2(c)} color={col(c).dot}/>)}
+          <YStat label="SCHED" value={filled}/><YStat label="EDITORS" value={editors.length}/>
+          {clients.map(c=><YStat key={c} label={c.toUpperCase().slice(0,5)} value={wkA2(c)} color={col(c).dot}/>)}
         </div>
 
-        {/* ═══ GRID ═══ */}
+        {/* GRID */}
         <div style={{overflowX:"auto",paddingBottom:4}}>
           <div style={{minWidth:1060}}>
-            {/* Day headers */}
             <div style={{display:"grid",gridTemplateColumns:"140px repeat(6,1fr)",gap:2,marginBottom:2}}>
               <div style={{padding:8,fontSize:9,color:Y.textMuted,letterSpacing:2,fontFamily:"'JetBrains Mono',monospace",display:"flex",alignItems:"flex-end",fontWeight:700}}>EDITORS</div>
-              {DAYS.map((day,i)=>{const d=new Date(ws);d.setDate(d.getDate()+i);const isT=isCW&&i===tI;return(
-                <div key={day} style={{padding:"8px 6px",textAlign:"center",borderRadius:"10px 10px 0 0",background:isT?Y.todayBg:"rgba(255,255,255,0.008)",border:isT?"1px solid "+Y.todayBorder:"1px solid rgba(255,255,255,0.025)",borderBottom:"none",position:"relative"}}>
-                  <div style={{fontSize:9,letterSpacing:2,fontWeight:700,color:isT?Y.accentBright:Y.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{SHORT[i]}</div>
-                  <div style={{fontSize:13,fontWeight:700,color:isT?Y.text:"#52525b",marginTop:1}}>{fmt(d)}</div>
-                  {isT&&<div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:20,height:2,borderRadius:"2px 2px 0 0",background:Y.accent}}/>}
-                </div>
-              );})}
+              {DAYS.map((day,i)=>{const d=new Date(ws);d.setDate(d.getDate()+i);const isT=isCW&&i===tI;return <div key={day} style={{padding:"8px 6px",textAlign:"center",borderRadius:"10px 10px 0 0",background:isT?Y.todayBg:"rgba(255,255,255,0.008)",border:isT?"1px solid "+Y.todayBorder:"1px solid rgba(255,255,255,0.025)",borderBottom:"none",position:"relative"}}>
+                <div style={{fontSize:9,letterSpacing:2,fontWeight:700,color:isT?Y.accentBright:Y.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>{SHORT[i]}</div>
+                <div style={{fontSize:13,fontWeight:700,color:isT?Y.text:"#52525b",marginTop:1}}>{fmt(d)}</div>
+                {isT&&<div style={{position:"absolute",bottom:0,left:"50%",transform:"translateX(-50%)",width:20,height:2,borderRadius:"2px 2px 0 0",background:Y.accent}}/>}
+              </div>})}
             </div>
-
-            {/* Editor rows */}
-            {editors.map((ed,eI)=>{const ld=editorLoad(ed);return(
+            {editors.map((ed,eI)=>{const ld=editorLoad(ed);const isOpsEd=ed.toLowerCase()==="anurag";return(
               <div key={ed} style={{display:"grid",gridTemplateColumns:"140px repeat(6,1fr)",gap:2,marginBottom:2}}>
-                {/* Editor label */}
-                <div className="hov-show" style={{padding:"8px 10px",background:"rgba(255,255,255,0.008)",border:"1px solid rgba(255,255,255,0.025)",
-                  borderRadius:eI===0?"10px 0 0 0":eI===editors.length-1?"0 0 0 10px":"0",
-                  display:"flex",flexDirection:"column",justifyContent:"center",gap:5,height:120}}>
+                <div className="hov-show" style={{padding:"8px 10px",background:"rgba(255,255,255,0.008)",border:"1px solid rgba(255,255,255,0.025)",borderRadius:eI===0?"10px 0 0 0":eI===editors.length-1?"0 0 0 10px":"0",display:"flex",flexDirection:"column",justifyContent:"center",gap:5,height:120}}>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    {renI===eI?(
-                      <input ref={rR} value={renV} onChange={e=>setRenV(e.target.value)}
-                        onKeyDown={e=>{if(e.key==="Enter"&&renV.trim()){const old=editors[eI];setEditors(p=>p.map((x,i)=>i===eI?renV.trim():x));setAssigns(p=>p.map(a=>a.ed===old?{...a,ed:renV.trim()}:a));setRenI(null);}if(e.key==="Escape")setRenI(null);}}
-                        onBlur={()=>{if(renV.trim()){const old=editors[eI];setEditors(p=>p.map((x,i)=>i===eI?renV.trim():x));setAssigns(p=>p.map(a=>a.ed===old?{...a,ed:renV.trim()}:a));}setRenI(null);}}
-                        style={{...inp,width:"100%",fontSize:11,padding:"3px 6px"}}/>
-                    ):(
-                      <>
-                        <span onClick={()=>{setRenI(eI);setRenV(ed);}} style={{fontSize:12,fontWeight:600,color:"#a1a1aa",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ed}{ed.toLowerCase()==="anurag"?" (Ops)":""}</span>
-                        <span className="hov-target" onClick={()=>{setEditors(p=>p.filter(x=>x!==ed));setAssigns(p=>p.filter(a=>a.ed!==ed));}} style={{cursor:"pointer",color:Y.textMuted,fontSize:12,opacity:0}}>×</span>
-                      </>
-                    )}
+                    {renI===eI?<input ref={rR} value={renV} onChange={e=>setRenV(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&renV.trim()){const old=editors[eI];setEditors(p=>p.map((x,i)=>i===eI?renV.trim():x));setAssigns(p=>p.map(a=>a.ed===old?{...a,ed:renV.trim()}:a));setRenI(null)}if(e.key==="Escape")setRenI(null)}} onBlur={()=>{if(renV.trim()){const old=editors[eI];setEditors(p=>p.map((x,i)=>i===eI?renV.trim():x));setAssigns(p=>p.map(a=>a.ed===old?{...a,ed:renV.trim()}:a))}setRenI(null)}} style={{...inp,width:"100%",fontSize:11,padding:"3px 6px"}}/>
+                    :<>
+                      <span onClick={()=>{setRenI(eI);setRenV(ed)}} style={{fontSize:12,fontWeight:600,color:isOpsEd?"#14b8a6":"#a1a1aa",cursor:"pointer",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ed}{isOpsEd?" (Ops)":""}</span>
+                      <span className="hov-target" onClick={()=>{setEditors(p=>p.filter(x=>x!==ed));setAssigns(p=>p.filter(a=>a.ed!==ed))}} style={{cursor:"pointer",color:Y.textMuted,fontSize:12,opacity:0}}>×</span>
+                    </>}
                   </div>
                   <div style={{display:"flex",alignItems:"center",gap:5}}>
                     <div style={{flex:1,background:"rgba(0,0,0,0.25)",borderRadius:3,height:3,overflow:"hidden"}}>
-                      <div style={{height:"100%",borderRadius:3,width:Math.min(ld/6*100,100)+"%",
-                        background:ld>5?"linear-gradient(90deg,#ef4444,#f97316)":ld>3?"linear-gradient(90deg,#f59e0b,#fbbf24)":"linear-gradient(90deg,#eab308,#fbbf24)"}}/>
+                      <div style={{height:"100%",borderRadius:3,width:Math.min(ld/6*100,100)+"%",background:ld>5?"linear-gradient(90deg,#ef4444,#f97316)":ld>3?"linear-gradient(90deg,#f59e0b,#fbbf24)":"linear-gradient(90deg,#eab308,#fbbf24)"}}/>
                     </div>
                     <span style={{fontSize:8,fontFamily:"'JetBrains Mono',monospace",color:Y.textDim,fontWeight:600}}>{ld}</span>
                   </div>
                 </div>
-
-                {/* Day cells — FIXED HEIGHT with scroll */}
                 {DAYS.map((day,dI)=>{
                   const ci=cellAs(day,ed);const isT=isCW&&dI===tI;
                   const isPickC=pickingClient&&pickingClient.day===day&&pickingClient.ed===ed;
                   const isPickV=pickingVideo&&pickingVideo.day===day&&pickingVideo.ed===ed;
                   const isManual=manualMode&&manualMode.day===day&&manualMode.ed===ed;
                   const isOpen=isPickC||isPickV||isManual;
-
-                  return(
-                    <div key={day} className="cell"
-                      onClick={()=>{if(!isOpen){closeAll();setPickingClient({day,ed});}}}
-                      onDragOver={e=>{e.preventDefault();e.currentTarget.classList.add("drag-over");}}
-                      onDragLeave={e=>e.currentTarget.classList.remove("drag-over")}
-                      onDrop={e=>{e.currentTarget.classList.remove("drag-over");handleDropCell(day,ed);}}
-                      style={{padding:4,background:isT?"rgba(245,158,11,0.015)":"rgba(255,255,255,0.004)",
-                        border:isT?"1px solid rgba(245,158,11,0.07)":"1px solid rgba(255,255,255,0.025)",
-                        cursor:"pointer",height:120,overflowY:"auto",
-                        borderRadius:eI===0&&dI===5?"0 10px 0 0":eI===editors.length-1&&dI===5?"0 0 10px 0":"0"}}>
-
-                      <div style={{display:"flex",flexDirection:"column",gap:3,minHeight:"100%"}}>
-                        {/* ── COMPACT CHIPS with checkbox ── */}
-                        {ci.map(a=>{const co=col(a.cl);const isDone=a.done;return(
-                          <div key={a.id} className="chip" draggable={!isDone}
-                            onDragStart={e=>{if(!isDone){e.stopPropagation();setDragA(a);}}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
-                            style={{background:isDone?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(isDone?"rgba(34,197,94,0.2)":co.border+"22"),borderRadius:6,padding:"4px 6px",display:"flex",alignItems:"center",gap:4,minHeight:28,opacity:isDone?0.6:1}}>
-                            <span onClick={e=>{e.stopPropagation();toggleDone(a.id);}}
-                              style={{width:14,height:14,borderRadius:3,border:isDone?"none":"1.5px solid "+co.border+"50",background:isDone?"#22c55e":"transparent",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff",transition:"all .15s"}}
-                              title={isDone?"Click to undo":"Click to mark done"}>
-                              {isDone&&"✓"}
-                            </span>
-                            <span style={{width:5,height:5,borderRadius:"50%",background:isDone?"#22c55e":co.dot,flexShrink:0}}/>
-                            <span style={{fontSize:10,fontWeight:700,color:isDone?"#86efac":co.text,flexShrink:0}}>{a.cl}</span>
-                            <span style={{fontSize:9,color:isDone?"#86efac60":co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:isDone?"line-through":"none"}} title={a.vn}>{a.vn||"—"}</span>
-                            <span onClick={e=>{e.stopPropagation();removeAssignment(a.id);}}
-                              style={{cursor:"pointer",color:isDone?"#86efac30":co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>
-                          </div>
-                        );})}
-
-                        {/* Client picker */}
-                        {isPickC&&!isPickV&&!isManual&&(
-                          <div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:2}}>
-                            {clients.map(c=>{const co=col(c);const ready=getAssignable(c).length;return(
-                              <button key={c} onClick={()=>{setPickingClient(null);setPickingVideo({day,ed,cl:c});}}
-                                style={{background:co.bg,border:"1px solid "+co.border+"20",borderRadius:5,padding:"4px 8px",color:co.text,fontSize:10,fontWeight:600,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",minHeight:24,transition:"border-color .1s"}}
-                                onMouseEnter={e=>e.currentTarget.style.borderColor=co.border+"55"} onMouseLeave={e=>e.currentTarget.style.borderColor=co.border+"20"}>
-                                <span>{c}</span>
-                                {ready>0&&<span style={{fontSize:7,background:co.border+"20",color:co.text,borderRadius:6,padding:"0 4px",fontWeight:800}}>{ready}</span>}
-                              </button>
-                            );})}
-                            <button onClick={closeAll} style={{background:"none",border:"none",color:Y.textMuted,fontSize:8,cursor:"pointer",fontFamily:"inherit",marginTop:1}}>cancel</button>
-                          </div>
-                        )}
-
-                        {/* Video picker */}
-                        {isPickV&&(()=>{
-                          const co=col(pickingVideo.cl);const vids=getAssignable(pickingVideo.cl);
-                          return(
-                            <div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:2}}>
-                              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:1}}>
-                                <div style={{display:"flex",alignItems:"center",gap:3}}>
-                                  <span style={{width:4,height:4,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{pickingVideo.cl}</span>
-                                </div>
-                                <button onClick={()=>{setPickingVideo(null);setPickingClient({day,ed});}} style={{background:"none",border:"none",color:Y.textDim,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>←</button>
-                              </div>
-                              {vids.length>0 ? vids.map(v=>(
-                                <div key={v.id} className="vid-pick" onClick={()=>assignVideo(day,ed,pickingVideo.cl,v)}
-                                  style={{padding:"4px 7px",background:"rgba(0,0,0,0.2)",display:"flex",alignItems:"center",gap:5,minHeight:24}}>
-                                  <span style={{fontSize:9,fontWeight:600,color:Y.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}} title={v.title}>{v.title}</span>
-                                  <span className="stag" style={{background:v.status.toLowerCase().includes("edit")?"rgba(244,63,94,0.12)":"rgba(251,191,36,0.12)",color:v.status.toLowerCase().includes("edit")?"#fda4af":"#fcd34d",flexShrink:0}}>{v.status.toLowerCase().includes("edit")?"E":"F"}</span>
-                                </div>
-                              )):(<div style={{fontSize:9,color:Y.textMuted,fontStyle:"italic",padding:3}}>No videos</div>)}
-                              <button onClick={e=>{e.stopPropagation();setPickingVideo(null);setManualMode({day,ed,cl:pickingVideo.cl});setManualName("");}}
-                                onMouseDown={e=>e.stopPropagation()}
-                                style={{background:"none",border:"1px dashed "+Y.surfaceBorder,borderRadius:4,padding:"4px",color:Y.textDim,fontSize:8,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:1,transition:"all .12s"}}
-                                onMouseEnter={e=>{e.currentTarget.style.borderColor=Y.accent+"40";e.currentTarget.style.color=Y.accent;}}
-                                onMouseLeave={e=>{e.currentTarget.style.borderColor=Y.surfaceBorder;e.currentTarget.style.color=Y.textDim;}}>✎ Type manually</button>
-                            </div>
-                          );
-                        })()}
-
-                        {/* Manual */}
-                        {isManual&&(()=>{const co=col(manualMode.cl);return(
-                          <div className="fu" onClick={e=>e.stopPropagation()} onMouseDown={e=>e.stopPropagation()}
-                            style={{background:co.bg,border:"1px solid "+co.border+"35",borderRadius:6,padding:"6px 8px"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
-                              <span style={{width:5,height:5,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{manualMode.cl}</span>
-                              <button onClick={e=>{e.stopPropagation();closeAll();}} style={{marginLeft:"auto",background:"none",border:"none",color:Y.textMuted,fontSize:10,cursor:"pointer",fontFamily:"inherit"}}>×</button>
-                            </div>
-                            <input ref={manualRef} value={manualName}
-                              onClick={e=>e.stopPropagation()}
-                              onMouseDown={e=>e.stopPropagation()}
-                              onChange={e=>setManualName(e.target.value)}
-                              onKeyDown={e=>{e.stopPropagation();if(e.key==="Enter"&&manualName.trim())assignManual();if(e.key==="Escape")closeAll();}}
-                              placeholder="Type video name and press Enter ↵"
-                              style={{width:"100%",fontSize:10,padding:"6px 8px",background:"rgba(0,0,0,0.3)",border:"1px solid "+co.border+"30",borderRadius:5,color:co.text,outline:"none",fontFamily:"'Outfit',sans-serif",marginBottom:4}}
-                              autoFocus/>
-                            <button onClick={e=>{e.stopPropagation();assignManual();}}
-                              style={{width:"100%",background:co.border+"20",border:"1px solid "+co.border+"30",borderRadius:5,padding:"4px 0",color:co.text,fontSize:9,cursor:"pointer",fontFamily:"inherit",fontWeight:700,transition:"all .12s"}}
-                              onMouseEnter={e=>e.currentTarget.style.background=co.border+"35"}
-                              onMouseLeave={e=>e.currentTarget.style.background=co.border+"20"}>
-                              Save
-                            </button>
-                          </div>
-                        );})}
-
-                        {/* Empty / add */}
-                        {!ci.length&&!isOpen&&(<div style={{display:"flex",alignItems:"center",justifyContent:"center",flex:1,color:Y.textMuted+"25",fontSize:18,fontWeight:300}}>+</div>)}
-                        {ci.length>0&&!isOpen&&(<div className="add-more" onClick={e=>{e.stopPropagation();closeAll();setPickingClient({day,ed});}}
-                          style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 0",borderRadius:4,border:"1px dashed "+Y.surfaceBorder,color:Y.textMuted,fontSize:9,cursor:"pointer",letterSpacing:0.5,fontWeight:600}}>+</div>)}
-                      </div>
+                  return <div key={day} className="cell" onClick={()=>{if(!isOpen){closeAll();setPickingClient({day,ed})}}}
+                    onDragOver={e=>{e.preventDefault();e.currentTarget.classList.add("drag-over")}} onDragLeave={e=>e.currentTarget.classList.remove("drag-over")} onDrop={e=>{e.currentTarget.classList.remove("drag-over");handleDropCell(day,ed)}}
+                    style={{padding:4,background:isT?"rgba(245,158,11,0.015)":"rgba(255,255,255,0.004)",border:isT?"1px solid rgba(245,158,11,0.07)":"1px solid rgba(255,255,255,0.025)",cursor:"pointer",height:120,overflowY:"auto",borderRadius:eI===0&&dI===5?"0 10px 0 0":eI===editors.length-1&&dI===5?"0 0 10px 0":"0"}}>
+                    <div style={{display:"flex",flexDirection:"column",gap:3,minHeight:"100%"}}>
+                      {ci.map(a=>{const co=col(a.cl);const dn=a.done;return(
+                        <div key={a.id} className="chip" draggable={!dn} onDragStart={e=>{if(!dn){e.stopPropagation();setDragA(a)}}} onDragEnd={()=>setDragA(null)} onClick={e=>e.stopPropagation()}
+                          style={{background:dn?"rgba(34,197,94,0.06)":co.bg,border:"1px solid "+(dn?"rgba(34,197,94,0.2)":co.border+"22"),borderRadius:6,padding:"4px 6px",display:"flex",alignItems:"center",gap:4,minHeight:28,opacity:dn?0.55:1}}>
+                          <span onClick={e=>{e.stopPropagation();toggleDone(a.id)}} style={{width:14,height:14,borderRadius:3,border:dn?"none":"1.5px solid "+co.border+"50",background:dn?"#22c55e":"transparent",cursor:"pointer",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#fff"}} title={dn?"Click to undo":"Mark done"}>{dn&&"✓"}</span>
+                          <span style={{width:5,height:5,borderRadius:"50%",background:dn?"#22c55e":co.dot,flexShrink:0}}/>
+                          <span style={{fontSize:10,fontWeight:700,color:dn?"#86efac":co.text,flexShrink:0}}>{a.cl}</span>
+                          <span style={{fontSize:9,color:dn?"#86efac60":co.text+"70",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0,textDecoration:dn?"line-through":"none"}} title={a.vn}>{a.vn||"—"}</span>
+                          <span onClick={e=>{e.stopPropagation();removeAssignment(a.id)}} style={{cursor:"pointer",color:dn?"#86efac30":co.text+"40",fontSize:11,lineHeight:1,flexShrink:0}}>×</span>
+                        </div>
+                      )})}
+                      {isPickC&&!isPickV&&!isManual&&<div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:2}}>
+                        {clients.map(c=>{const co=col(c);const ready=getAssignable(c).length;return <button key={c} onClick={()=>{setPickingClient(null);setPickingVideo({day,ed,cl:c})}} style={{background:co.bg,border:"1px solid "+co.border+"20",borderRadius:5,padding:"4px 8px",color:co.text,fontSize:10,fontWeight:600,cursor:"pointer",textAlign:"left",fontFamily:"inherit",display:"flex",justifyContent:"space-between",alignItems:"center",minHeight:24}} onMouseEnter={e=>e.currentTarget.style.borderColor=co.border+"55"} onMouseLeave={e=>e.currentTarget.style.borderColor=co.border+"20"}>
+                          <span>{c}</span>{ready>0&&<span style={{fontSize:7,background:co.border+"20",color:co.text,borderRadius:6,padding:"0 4px",fontWeight:800}}>{ready}</span>}
+                        </button>})}
+                        <button onClick={closeAll} style={{background:"none",border:"none",color:Y.textMuted,fontSize:8,cursor:"pointer",fontFamily:"inherit",marginTop:1}}>cancel</button>
+                      </div>}
+                      {isPickV&&(()=>{const co=col(pickingVideo.cl);const vids=getAssignable(pickingVideo.cl);return <div className="fu" onClick={e=>e.stopPropagation()} style={{display:"flex",flexDirection:"column",gap:2}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:4,height:4,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{pickingVideo.cl}</span></div>
+                          <button onClick={()=>{setPickingVideo(null);setPickingClient({day,ed})}} style={{background:"none",border:"none",color:Y.textDim,fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>←</button>
+                        </div>
+                        {vids.length>0?vids.map(v=><div key={v.id} className="vid-pick" onClick={()=>assignVideo(day,ed,pickingVideo.cl,v)} style={{padding:"4px 7px",background:"rgba(0,0,0,0.2)",display:"flex",alignItems:"center",gap:5,minHeight:24}}>
+                          <span style={{fontSize:9,fontWeight:600,color:Y.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}} title={v.title}>{v.title}</span>
+                          <span style={{fontSize:7,padding:"1px 4px",borderRadius:3,fontWeight:700,fontFamily:"'JetBrains Mono',monospace",background:v.status.toLowerCase().includes("edit")?"rgba(244,63,94,0.12)":"rgba(251,191,36,0.12)",color:v.status.toLowerCase().includes("edit")?"#fda4af":"#fcd34d",flexShrink:0}}>{v.status.toLowerCase().includes("edit")?"E":"F"}</span>
+                        </div>):<div style={{fontSize:9,color:Y.textMuted,fontStyle:"italic",padding:3}}>No videos</div>}
+                        <button onClick={()=>{setPickingVideo(null);setManualMode({day,ed,cl:pickingVideo.cl});setManualName("")}} style={{background:"none",border:"1px dashed "+Y.surfaceBorder,borderRadius:4,padding:"3px",color:Y.textDim,fontSize:8,cursor:"pointer",fontFamily:"inherit",textAlign:"center",marginTop:1}}>✎ manual</button>
+                      </div>})()}
+                      {isManual&&(()=>{const co=col(manualMode.cl);return <div className="fu" onClick={e=>e.stopPropagation()} style={{background:co.bg,border:"1px solid "+co.border+"35",borderRadius:6,padding:"5px 7px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:3}}><span style={{width:4,height:4,borderRadius:"50%",background:co.dot}}/><span style={{fontSize:10,fontWeight:700,color:co.text}}>{manualMode.cl}</span></div>
+                        <input ref={manualRef} value={manualName} onChange={e=>setManualName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")assignManual();if(e.key==="Escape")closeAll()}} placeholder="Name ↵" style={{...inp,width:"100%",fontSize:9,padding:"3px 5px",background:"rgba(0,0,0,0.25)",borderColor:co.border+"25",color:co.text,marginBottom:3}}/>
+                        <div style={{display:"flex",gap:2}}><button onClick={assignManual} style={{flex:1,background:co.border+"15",border:"1px solid "+co.border+"25",borderRadius:4,padding:"2px 0",color:co.text,fontSize:8,cursor:"pointer",fontFamily:"inherit",fontWeight:700}}>Save</button><button onClick={closeAll} style={{background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:4,padding:"2px 5px",color:"#52525b",fontSize:8,cursor:"pointer",fontFamily:"inherit"}}>×</button></div>
+                      </div>})()}
+                      {!ci.length&&!isOpen&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",flex:1,color:Y.textMuted+"25",fontSize:18,fontWeight:300}}>+</div>}
+                      {ci.length>0&&!isOpen&&<div className="add-more" onClick={e=>{e.stopPropagation();closeAll();setPickingClient({day,ed})}} style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"2px 0",borderRadius:4,border:"1px dashed "+Y.surfaceBorder,color:Y.textMuted,fontSize:9,cursor:"pointer",fontWeight:600}}>+</div>}
                     </div>
-                  );
+                  </div>
                 })}
               </div>
-            );})}
+            )})}
           </div>
         </div>
-
-        {/* Buttons */}
         <div style={{display:"flex",gap:10,marginTop:6,flexWrap:"wrap"}}>
-          {addE?(<div className="fu" style={{display:"flex",gap:4,alignItems:"center"}}>
-            <input ref={eR} value={ne} onChange={e=>setNe(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&ne.trim()&&!editors.includes(ne.trim())){setEditors(p=>[...p,ne.trim()]);setNe("");setAddE(false);}}} placeholder="Editor" style={inp}/>
-            <YBtn onClick={()=>{if(ne.trim()&&!editors.includes(ne.trim())){setEditors(p=>[...p,ne.trim()]);setNe("");setAddE(false);}}} active>Add</YBtn><YBtn onClick={()=>{setAddE(false);setNe("");}}>×</YBtn>
-          </div>):(<DBtn onClick={()=>setAddE(true)}>+ EDITOR</DBtn>)}
-          {addC?(<div className="fu" style={{display:"flex",gap:4,alignItems:"center"}}>
-            <input ref={cR} value={nc} onChange={e=>setNc(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&nc.trim()&&!clients.includes(nc.trim())){setClients(p=>[...p,nc.trim()]);setNc("");setAddC(false);}}} placeholder="Client" style={inp}/>
-            <YBtn onClick={()=>{if(nc.trim()&&!clients.includes(nc.trim())){setClients(p=>[...p,nc.trim()]);setNc("");setAddC(false);}}} active>Add</YBtn><YBtn onClick={()=>{setAddC(false);setNc("");}}>×</YBtn>
-          </div>):(<DBtn onClick={()=>setAddC(true)}>+ CLIENT</DBtn>)}
+          {addE?<div className="fu" style={{display:"flex",gap:4,alignItems:"center"}}><input ref={eR} value={ne} onChange={e=>setNe(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&ne.trim()&&!editors.includes(ne.trim())){setEditors(p=>[...p,ne.trim()]);setNe("");setAddE(false)}}} placeholder="Editor" style={inp}/><YBtn onClick={()=>{if(ne.trim()&&!editors.includes(ne.trim())){setEditors(p=>[...p,ne.trim()]);setNe("");setAddE(false)}}} active>Add</YBtn><YBtn onClick={()=>{setAddE(false);setNe("")}}>×</YBtn></div>
+          :<DBtn onClick={()=>setAddE(true)}>+ EDITOR</DBtn>}
+          {addC?<div className="fu" style={{display:"flex",gap:4,alignItems:"center"}}><input ref={cR} value={nc} onChange={e=>setNc(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&nc.trim()&&!clients.includes(nc.trim())){setClients(p=>[...p,nc.trim()]);setNc("");setAddC(false)}}} placeholder="Client" style={inp}/><YBtn onClick={()=>{if(nc.trim()&&!clients.includes(nc.trim())){setClients(p=>[...p,nc.trim()]);setNc("");setAddC(false)}}} active>Add</YBtn><YBtn onClick={()=>{setAddC(false);setNc("")}}>×</YBtn></div>
+          :<DBtn onClick={()=>setAddC(true)}>+ CLIENT</DBtn>}
         </div>
-
         <div style={{marginTop:20,padding:"12px 0",borderTop:"1px solid "+Y.surfaceBorder,display:"flex",gap:20,flexWrap:"wrap",fontSize:9,color:Y.textMuted,fontFamily:"'JetBrains Mono',monospace"}}>
-          <span>⬡ Sync → To Edit & To Film</span>
-          <span>⬡ ☐ Check = Done in Notion</span>
-          <span>⬡ Unchecked rolls to next day at 6AM</span>
-          <span>⬡ Drag to reschedule</span>
+          <span>⬡ Sync → To Edit & To Film</span><span>⬡ ☐ Check = Done in Notion</span><span>⬡ Unchecked rolls to next day at 6AM</span><span>⬡ × removes + reverts Notion</span>
         </div>
       </div>
     </div>
   );
 }
 
-function YBtn({children,onClick,active}){return <button onClick={onClick} style={{background:active?"linear-gradient(135deg,#f59e0b,#d97706)":"rgba(245,158,11,0.04)",border:"1px solid "+(active?"#f59e0b":"rgba(245,158,11,0.1)"),color:active?"#000":"#92400e",padding:"6px 12px",borderRadius:7,fontSize:10,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:active?800:600,boxShadow:active?"0 0 14px rgba(245,158,11,0.25)":"none"}}>{children}</button>;}
-function DBtn({children,onClick}){return <button onClick={onClick} style={{background:"none",border:"1px dashed "+Y.surfaceBorder,borderRadius:8,padding:"8px 18px",color:Y.textMuted,cursor:"pointer",fontSize:10,letterSpacing:2,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}} onMouseEnter={e=>{e.currentTarget.style.borderColor=Y.accent+"35";e.currentTarget.style.color=Y.accent;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=Y.surfaceBorder;e.currentTarget.style.color=Y.textMuted;}}>{children}</button>;}
-function YStat({label,value,color}){return(<div style={{background:"rgba(245,158,11,0.025)",border:"1px solid rgba(245,158,11,0.07)",borderRadius:8,padding:"6px 12px",display:"flex",flexDirection:"column",gap:1,minWidth:44}}><span style={{fontSize:7,color:"#78350f",letterSpacing:1,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{label}</span><span style={{fontSize:15,fontWeight:800,color:color||"#fef3c7",fontFamily:"'JetBrains Mono',monospace"}}>{value}</span></div>);}
+function YBtn({children,onClick,active}){return <button onClick={onClick} style={{background:active?"linear-gradient(135deg,#f59e0b,#d97706)":"rgba(245,158,11,0.04)",border:"1px solid "+(active?"#f59e0b":"rgba(245,158,11,0.1)"),color:active?"#000":"#92400e",padding:"6px 12px",borderRadius:7,fontSize:10,cursor:"pointer",fontFamily:"'Outfit',sans-serif",fontWeight:active?800:600,boxShadow:active?"0 0 14px rgba(245,158,11,0.25)":"none"}}>{children}</button>}
+function DBtn({children,onClick}){return <button onClick={onClick} style={{background:"none",border:"1px dashed rgba(245,158,11,0.10)",borderRadius:8,padding:"8px 18px",color:"#78350f",cursor:"pointer",fontSize:10,letterSpacing:2,fontFamily:"'JetBrains Mono',monospace",fontWeight:700}} onMouseEnter={e=>{e.currentTarget.style.borderColor="#f59e0b35";e.currentTarget.style.color="#f59e0b"}} onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(245,158,11,0.10)";e.currentTarget.style.color="#78350f"}}>{children}</button>}
+function YStat({label,value,color}){return <div style={{background:"rgba(245,158,11,0.025)",border:"1px solid rgba(245,158,11,0.07)",borderRadius:8,padding:"6px 10px",display:"flex",flexDirection:"column",gap:1,minWidth:40}}><span style={{fontSize:7,color:"#78350f",letterSpacing:1,fontWeight:700,fontFamily:"'JetBrains Mono',monospace"}}>{label}</span><span style={{fontSize:15,fontWeight:800,color:color||"#fef3c7",fontFamily:"'JetBrains Mono',monospace"}}>{value}</span></div>}
 const inp={background:"rgba(245,158,11,0.03)",border:"1px solid rgba(245,158,11,0.1)",borderRadius:5,padding:"5px 8px",color:"#fef3c7",fontSize:11,fontFamily:"'Outfit',sans-serif",width:110,outline:"none"};
