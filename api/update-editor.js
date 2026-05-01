@@ -1,19 +1,22 @@
-// api/update-editor.js — Assign video: sets Editor + Status to "To Edit", Anurag sets Assets
+// api/update-editor.js — Assign video to editor/ops
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 const OPS_MEMBERS = ["anurag"];
 
-// Assets column name varies by client (Brad has "Assets 2" due to existing "Asset" column)
-const ASSETS_COL = {
-  Brad: "Assets 2",
-};
+// Assets column name per client (Brad has "Assets 2")
+const ASSETS_COL = { Brad: "Assets 2" };
 const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
 
-// "To Edit" status name varies by client
+// "To Edit" status value per client
 const TO_EDIT_STATUS = {
   Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
-  EmTech: "TO EDIT", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
+  EmTech: "TO EDIT", Duncan: "TO EDIT", Cinday: "In progress",
+  Joshua: "To Edit", Valerie: "6- In Edit",
 };
+
+// Valerie uses select, others use status
+const STATUS_TYPE = { Valerie: "select" };
+const getStatusType = (client) => STATUS_TYPE[client] || "status";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -26,9 +29,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ success: false, error: "NOTION_TOKEN not set" });
 
   const { pageId, editor, editorProp, videoTitle, client } = req.body;
-  if (!pageId || !editor) {
-    return res.status(400).json({ success: false, error: "pageId and editor required" });
-  }
+  if (!pageId || !editor) return res.status(400).json({ success: false, error: "pageId and editor required" });
 
   const isOps = OPS_MEMBERS.includes(editor.toLowerCase());
   const results = { clientUpdate: false, editorsRow: false, isOps };
@@ -38,17 +39,16 @@ export default async function handler(req, res) {
     let updateProps = {};
 
     if (isOps) {
-      // Anurag (Ops) → set Assets to "In progress", don't touch Editor or Status
-      updateProps = {
-        [getAssetsCol(client)]: { status: { name: "In progress" } }
-      };
+      // Anurag → set Assets to "In progress", don't touch Editor or Status
+      updateProps = { [getAssetsCol(client)]: { status: { name: "In progress" } } };
     } else {
-      // Regular editor → set Editor column + Status to "To Edit"
+      // Regular editor → set Editor + Status to "To Edit"
       if (editorProp) {
         updateProps[editorProp] = { select: { name: editor } };
       }
       const toEditVal = TO_EDIT_STATUS[client] || "To Edit";
-      updateProps["Status"] = { status: { name: toEditVal } };
+      const sType = getStatusType(client);
+      updateProps["Status"] = { [sType]: { name: toEditVal } };
     }
 
     const resp = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
@@ -58,31 +58,31 @@ export default async function handler(req, res) {
     });
     results.clientUpdate = resp.ok;
     if (!resp.ok) results.clientError = await resp.text();
-  } catch (err) {
-    results.clientError = err.message;
-  }
+  } catch (err) { results.clientError = err.message; }
 
-  // 2. Create row in Editors Data
-  try {
-    const today = new Date().toISOString().split("T")[0];
-    const resp = await fetch("https://api.notion.com/v1/pages", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        parent: { database_id: EDITORS_DB_ID },
-        properties: {
-          "Video Title": { title: [{ text: { content: videoTitle || "Untitled" } }] },
-          "Editor": { select: { name: editor } },
-          "Assigned Date": { date: { start: today } },
-          "Status": { status: { name: "In progress" } },
-          ...(client ? { "CLIENT": { multi_select: [{ name: client.toUpperCase() }] } } : {}),
-        }
-      }),
-    });
-    results.editorsRow = resp.ok;
-    if (!resp.ok) results.editorsError = await resp.text();
-  } catch (err) {
-    results.editorsError = err.message;
+  // 2. Create row in Editors Data — ONLY for editors, NOT for Anurag (ops)
+  if (!isOps) {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const resp = await fetch("https://api.notion.com/v1/pages", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parent: { database_id: EDITORS_DB_ID },
+          properties: {
+            "Video Title": { title: [{ text: { content: videoTitle || "Untitled" } }] },
+            "Editor": { select: { name: editor } },
+            "Assigned Date": { date: { start: today } },
+            "Status": { status: { name: "In progress" } },
+            ...(client ? { "CLIENT": { multi_select: [{ name: client.toUpperCase() }] } } : {}),
+          }
+        }),
+      });
+      results.editorsRow = resp.ok;
+      if (!resp.ok) results.editorsError = await resp.text();
+    } catch (err) { results.editorsError = err.message; }
+  } else {
+    results.editorsRow = "skipped_ops";
   }
 
   res.status(200).json({ success: true, results });
