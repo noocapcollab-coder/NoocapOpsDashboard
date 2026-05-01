@@ -2,22 +2,23 @@
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 
-const STATUS_PROPS = {
-  Brad: "Status", Lindsay: "Status", Chris: "Status",
-  EmTech: "Status", Duncan: "Status", Cinday: "Status", Joshua: "Status",
-};
-
 const DONE_STATUS = {
   Brad: "READY", Lindsay: "READY", Chris: "READY",
-  EmTech: "READY", Duncan: "READY", Cinday: "POSTED", Joshua: "READY",
+  EmTech: "READY", Duncan: "READY", Cinday: "POSTED",
+  Joshua: "READY", Valerie: "9- To Post",
 };
 
 const UNDO_STATUS = {
   Brad: "To Edit", Lindsay: "To Edit", Chris: "To Edit",
-  EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress", Joshua: "To Edit",
+  EmTech: "To Edit", Duncan: "TO EDIT", Cinday: "In progress",
+  Joshua: "To Edit", Valerie: "6- In Edit",
 };
 
-// Assets column name varies by client
+// Valerie uses select, others use status
+const STATUS_TYPE = { Valerie: "select" };
+const getStatusType = (client) => STATUS_TYPE[client] || "status";
+
+// Assets column name per client
 const ASSETS_COL = { Brad: "Assets 2" };
 const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
 
@@ -41,21 +42,12 @@ export default async function handler(req, res) {
   if (notionPageId) {
     try {
       let updateProps;
-
       if (isOps) {
-        // Ops (Anurag) → update Assets column, NOT Status
-        updateProps = {
-          [getAssetsCol(client)]: { status: { name: isDone ? "Done" : "Not started" } }
-        };
+        updateProps = { [getAssetsCol(client)]: { status: { name: isDone ? "Done" : "Not started" } } };
       } else {
-        // Regular editor → update Status column
-        const statusProp = STATUS_PROPS[client] || "Status";
-        const statusValue = isDone
-          ? (DONE_STATUS[client] || "READY")
-          : (UNDO_STATUS[client] || "To Edit");
-        updateProps = {
-          [statusProp]: { status: { name: statusValue } }
-        };
+        const statusValue = isDone ? (DONE_STATUS[client] || "READY") : (UNDO_STATUS[client] || "To Edit");
+        const sType = getStatusType(client);
+        updateProps = { "Status": { [sType]: { name: statusValue } } };
       }
 
       const resp = await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
@@ -65,54 +57,39 @@ export default async function handler(req, res) {
       });
       results.clientUpdate = resp.ok;
       if (!resp.ok) results.clientError = await resp.text();
-    } catch (err) {
-      results.clientError = err.message;
-    }
+    } catch (err) { results.clientError = err.message; }
   }
 
-  // 2. Find and update the row in Editors Data
-  try {
-    const searchResp = await fetch(`https://api.notion.com/v1/databases/${EDITORS_DB_ID}/query`, {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-      body: JSON.stringify({
-        filter: {
-          and: [
-            { property: "Video Title", title: { equals: videoTitle || "" } },
-            ...(editor ? [{ property: "Editor", select: { equals: editor } }] : []),
-          ]
-        },
-        page_size: 1,
-      }),
-    });
+  // 2. Find and update the row in Editors Data (only for editors, not ops)
+  if (!isOps && videoTitle) {
+    try {
+      const filters = [{ property: "Video Title", title: { equals: videoTitle } }];
+      if (editor) filters.push({ property: "Editor", select: { equals: editor } });
 
-    if (searchResp.ok) {
-      const searchData = await searchResp.json();
-      if (searchData.results.length > 0) {
-        const editorPageId = searchData.results[0].id;
+      const searchResp = await fetch(`https://api.notion.com/v1/databases/${EDITORS_DB_ID}/query`, {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+        body: JSON.stringify({ filter: { and: filters }, page_size: 1 }),
+      });
 
-        const updateProps = isDone
-          ? {
-              "Status": { status: { name: "Done" } },
-              "Submission Date": { date: { start: new Date().toISOString().split("T")[0] } },
-            }
-          : {
-              "Status": { status: { name: "In progress" } },
-            };
+      if (searchResp.ok) {
+        const searchData = await searchResp.json();
+        if (searchData.results.length > 0) {
+          const editorPageId = searchData.results[0].id;
+          const updateProps = isDone
+            ? { "Status": { status: { name: "Done" } }, "Submission Date": { date: { start: new Date().toISOString().split("T")[0] } } }
+            : { "Status": { status: { name: "In progress" } } };
 
-        const updateResp = await fetch(`https://api.notion.com/v1/pages/${editorPageId}`, {
-          method: "PATCH",
-          headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
-          body: JSON.stringify({ properties: updateProps }),
-        });
-        results.editorsUpdate = updateResp.ok;
-        if (!updateResp.ok) results.editorsError = await updateResp.text();
-      } else {
-        results.editorsError = "Row not found in Editors Data";
+          const updateResp = await fetch(`https://api.notion.com/v1/pages/${editorPageId}`, {
+            method: "PATCH",
+            headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
+            body: JSON.stringify({ properties: updateProps }),
+          });
+          results.editorsUpdate = updateResp.ok;
+          if (!updateResp.ok) results.editorsError = await updateResp.text();
+        } else { results.editorsError = "Row not found"; }
       }
-    }
-  } catch (err) {
-    results.editorsError = err.message;
+    } catch (err) { results.editorsError = err.message; }
   }
 
   res.status(200).json({ success: true, results });
