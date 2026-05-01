@@ -1,17 +1,19 @@
-// api/remove-assignment.js — Revert Notion when removing a video from dashboard
+// api/remove-assignment.js — Revert Notion when removing a video
 
 const EDITORS_DB_ID = "2ba508e99dda8001a63cdd29a252e2aa";
 const OPS_MEMBERS = ["anurag"];
 
-// Assets column name varies by client
-const ASSETS_COL = { Brad: "Assets 2" };
-const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
-
-// Revert status to "To Film" per client
 const TO_FILM_STATUS = {
   Brad: "To Film", Lindsay: "To Film", Chris: "To Film",
-  EmTech: "TO FILM", Duncan: "TO FILM", Cinday: "Not started", Joshua: "To Film",
+  EmTech: "TO FILM", Duncan: "TO FILM", Cinday: "Not started",
+  Joshua: "To Film", Valerie: "5- To Film",
 };
+
+const STATUS_TYPE = { Valerie: "select" };
+const getStatusType = (client) => STATUS_TYPE[client] || "status";
+
+const ASSETS_COL = { Brad: "Assets 2" };
+const getAssetsCol = (client) => ASSETS_COL[client] || "Assets";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -30,19 +32,13 @@ export default async function handler(req, res) {
   // 1. Revert client's content planner
   if (notionPageId) {
     try {
-      let updateProps = {};
-
+      let updateProps;
       if (isOps) {
-        // Anurag → revert Assets to "Not started"
-        updateProps = {
-          [getAssetsCol(client)]: { status: { name: "Not started" } }
-        };
+        updateProps = { [getAssetsCol(client)]: { status: { name: "Not started" } } };
       } else {
-        // Regular editor → revert Status to "To Film"
         const toFilmVal = TO_FILM_STATUS[client] || "To Film";
-        updateProps = {
-          "Status": { status: { name: toFilmVal } }
-        };
+        const sType = getStatusType(client);
+        updateProps = { "Status": { [sType]: { name: toFilmVal } } };
       }
 
       const resp = await fetch(`https://api.notion.com/v1/pages/${notionPageId}`, {
@@ -52,34 +48,27 @@ export default async function handler(req, res) {
       });
       results.clientUpdate = resp.ok;
       if (!resp.ok) results.clientError = await resp.text();
-    } catch (err) {
-      results.clientError = err.message;
-    }
+    } catch (err) { results.clientError = err.message; }
   }
 
-  // 2. Find and archive the row in Editors Data
-  if (videoTitle && editor) {
+  // 2. Archive the row in Editors Data (only for editors, not ops)
+  if (!isOps && videoTitle && editor) {
     try {
       const searchResp = await fetch(`https://api.notion.com/v1/databases/${EDITORS_DB_ID}/query`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
         body: JSON.stringify({
-          filter: {
-            and: [
-              { property: "Video Title", title: { equals: videoTitle } },
-              { property: "Editor", select: { equals: editor } },
-            ]
-          },
+          filter: { and: [
+            { property: "Video Title", title: { equals: videoTitle } },
+            { property: "Editor", select: { equals: editor } },
+          ]},
           page_size: 1,
         }),
       });
-
       if (searchResp.ok) {
         const searchData = await searchResp.json();
         if (searchData.results.length > 0) {
-          const editorPageId = searchData.results[0].id;
-          // Archive the row (move to trash)
-          const archiveResp = await fetch(`https://api.notion.com/v1/pages/${editorPageId}`, {
+          const archiveResp = await fetch(`https://api.notion.com/v1/pages/${searchData.results[0].id}`, {
             method: "PATCH",
             headers: { "Authorization": `Bearer ${token}`, "Notion-Version": "2022-06-28", "Content-Type": "application/json" },
             body: JSON.stringify({ archived: true }),
@@ -87,9 +76,7 @@ export default async function handler(req, res) {
           results.editorsUpdate = archiveResp.ok;
         }
       }
-    } catch (err) {
-      results.editorsError = err.message;
-    }
+    } catch (err) { results.editorsError = err.message; }
   }
 
   res.status(200).json({ success: true, results });
